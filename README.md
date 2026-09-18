@@ -60,9 +60,15 @@ netlify deploy --build --prod
 `Cannot find package '\u000bar\taskappsweb'`（502）。同时该插件会用 `fs.cp` 复制
 依赖软链，未开启开发者模式的 Windows 账号会直接 `EPERM`。
 
-正确做法是把仓库连到 Netlify 做云端 Linux 构建（Project configuration →
-Build & deploy → Continuous deployment → Link repository），`netlify.toml` 已提供
-构建命令与发布目录，Base directory 留空；之后 `git push` 即自动发布。
+排除方案：Netlify 免费版对**私有仓库**只允许「已验证账号成员」的提交触发构建，
+即使仓库已连到 Netlify、GitHub 账号也已关联、提交邮箱换成 GitHub noreply，push
+仍会得到 `Build blocked: Unrecognized Git contributor`（manual deploy 与 build
+hook 同样被拦）。
+
+因此本项目用 `.github/workflows/netlify-deploy.yml` 部署：在 GitHub Actions 的
+Linux runner 上执行 Netlify 构建，再用 CLI 手动发布。需要仓库 Secret
+`NETLIFY_AUTH_TOKEN`（Netlify → User settings → Applications → Personal access
+tokens）。构建失败时工作流会把日志写进 `ci-deploy.log` 并提交，便于排查。
 
 ### 同源校验
 

@@ -19,3 +19,5 @@ fixtures/private/**
 !fixtures/private/.gitkeep
 tmp/
 services/document-worker/.cache/
+
+ci-deploy.log

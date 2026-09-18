@@ -55,7 +55,7 @@ jobs:
         run: npx --yes netlify-cli@27.8.0 deploy --build --prod --filter @oa/web 2>&1 | tee -a ci-deploy.log
 
       - name: Publish the run log
-        if: always()
+        if: steps.deploy.outcome != 'success'
         run: |
           echo "" >> ci-deploy.log
           echo "=== deploy step outcome: ${{ steps.deploy.outcome }} ===" >> ci-deploy.log
