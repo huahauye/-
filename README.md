@@ -52,6 +52,24 @@ netlify deploy --build --prod
 和 Async Workloads。`.env.netlify` 含远程数据库凭据，已被 `.env.*` 规则忽略，
 不得提交到 Git。
 
+### 必须使用 Linux 构建
+
+**不要在 Windows 上用 `netlify deploy --build` 交付生产包。**
+`@netlify/plugin-nextjs` 在 Windows 上会把 `/var/task/apps/web` 写成带反斜杠的
+路径，打包后转义成控制字符，函数在 Linux 运行时抛
+`Cannot find package '\u000bar\taskappsweb'`（502）。同时该插件会用 `fs.cp` 复制
+依赖软链，未开启开发者模式的 Windows 账号会直接 `EPERM`。
+
+正确做法是把仓库连到 Netlify 做云端 Linux 构建（Project configuration →
+Build & deploy → Continuous deployment → Link repository），`netlify.toml` 已提供
+构建命令与发布目录，Base directory 留空；之后 `git push` 即自动发布。
+
+### 同源校验
+
+跨站写请求的 Origin 校验在 `apps/web/lib/errors.ts` 的 `assertSameOrigin` 中实现，
+由 `readJson` 及无请求体的写接口调用。它不再使用 Next.js middleware，因为
+Next 16 的 `proxy.ts` 会走 Node middleware 打包路径，使本地 Windows 构建不可用。
+
 ## 已实现功能
 
 - 邮箱注册、登录、找回入口及用户/管理员权限隔离。
