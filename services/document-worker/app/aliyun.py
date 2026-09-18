@@ -125,10 +125,12 @@ def convert_office(
     if not target_prefix.endswith("/"):
         target_prefix = f"{target_prefix}/"
 
+    # Note: the SDK spells this field "target_uriprefix" (no underscore before
+    # "prefix"), unlike every other field on the request model.
     request = imm_models.CreateOfficeConversionTaskRequest(
         project_name=cfg.aliyun_imm_project,
         source_uri=oss_uri(source_key),
-        target_uri_prefix=oss_uri(target_prefix),
+        target_uriprefix=oss_uri(target_prefix),
         target_type=target_type,
         **(options or {}),
     )
@@ -166,6 +168,10 @@ def recognize_image(data: bytes) -> tuple[str, float]:
         response = client.recognize_advanced(ocr_models.RecognizeAdvancedRequest(body=stream))
 
     raw = getattr(response.body, "data", None) or "{}"
+    code = getattr(response.body, "code", None)
+    if code and str(code) not in {"", "200", "OK"}:
+        message = str(getattr(response.body, "message", "")).replace("\n", " ")[:160]
+        raise RuntimeError(f"OCR_FAILED:{code}:{message}")
     try:
         payload = json.loads(raw) if isinstance(raw, str) else dict(raw)
     except json.JSONDecodeError as error:
