@@ -24,12 +24,23 @@ export async function requireUser(): Promise<AppUser> {
   const identityUser = await getUser();
   if (!identityUser?.id || !identityUser.email) throw new AppError("AUTH_REQUIRED", "请先登录。", 401);
   const claims = identityUser.appMetadata as { roles?: string[] } | undefined;
-  const role = claims?.roles?.includes("admin") ? "ADMIN" : "USER";
+  const role = claims?.roles?.includes("admin") || (await shouldBootstrapAdmin(config)) ? "ADMIN" : "USER";
   const rows = await db.insert(appUsers).values({ identityUserId: identityUser.id, email: identityUser.email, role })
     .onConflictDoUpdate({ target: appUsers.identityUserId, set: { email: identityUser.email, updatedAt: new Date() } }).returning();
   const user = rows[0];
   if (!user) throw new AppError("AUTH_REQUIRED", "请先登录。", 401);
   return user;
+}
+
+/**
+ * Bootstrap switch: when BOOTSTRAP_FIRST_ADMIN=true and the instance has no
+ * ADMIN yet, the first account to sign in is promoted. Existing accounts are
+ * never promoted, so turning the flag off later leaves roles untouched.
+ */
+async function shouldBootstrapAdmin(config: { BOOTSTRAP_FIRST_ADMIN: "true" | "false" }): Promise<boolean> {
+  if (config.BOOTSTRAP_FIRST_ADMIN !== "true") return false;
+  const rows = await db.select({ id: appUsers.id }).from(appUsers).where(eq(appUsers.role, "ADMIN")).limit(1);
+  return rows.length === 0;
 }
 
 export async function requireAdmin(): Promise<AppUser> {

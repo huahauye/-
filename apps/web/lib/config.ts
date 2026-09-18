@@ -9,6 +9,7 @@ const serverConfigSchema = z.object({
   MAX_UPLOAD_MB: z.coerce.number().positive().default(200),
   ALLOW_GENERATE_WITH_MISSING_PRIOR_ART: z.enum(["true", "false"]).default("false"),
   ACTIVE_SKILL_SLUG: z.string().default("cn-patent-oa-response"),
+  BOOTSTRAP_FIRST_ADMIN: z.enum(["true", "false"]).default("false"),
   PARSER_VERSION: z.string().default("1.0.0"),
   BUILDER_VERSION: z.string().default("1.0.0"),
   APP_GIT_SHA: z.string().default("local"),

@@ -129,11 +129,23 @@ DB 与 R2；`/healthz` 用于探针，多实例通过 `FOR UPDATE SKIP LOCKED` �
 
 ## 管理员初始化
 
-用户第一次通过 Identity 登录后，在数据库将其 `app_users.role` 更新为
-`ADMIN`。随后访问 `/admin`：
+`netlify/database/migrations/0002_seed_reference_data.sql` 会在部署时自动写入基线
+数据：`cn-patent-oa-response` Skill 的 1.0.0 已发布版本，以及五个 DeepSeek 模型
+Profile。该迁移可重复执行，不触碰任何案件数据。
 
-1. 建立 Model Profiles，仅填写 Secret 环境变量名，不填密钥值。
-2. 将 `skills/seed/cn-patent-oa-response` 打成 ZIP，在 Skill 管理页导入。
+管理员有两种初始化方式，任选其一：
+
+1. **开关方式（推荐）**：把站点环境变量 `BOOTSTRAP_FIRST_ADMIN` 设为 `true` 后
+   重新部署。在实例还没有任何 `ADMIN` 的前提下，第一个登录的账号会被提升为
+   管理员；已有账号不会被改动，完成初始化后请把开关改回 `false`。
+2. **手工方式**：用户第一次通过 Identity 登录后，在数据库将其
+   `app_users.role` 更新为 `ADMIN`。
+
+随后访问 `/admin`：
+
+1. 检查或调整 Model Profiles，仅填写 Secret 环境变量名，不填密钥值。
+2. 如需真实来源溯源，将 `skills/seed/cn-patent-oa-response` 打成 ZIP 在 Skill
+   管理页导入；固定工作流的提示词来自仓库受审代码，不会读取 ZIP 中的脚本。
 3. 验证为 Staging，登记私有 Golden Case，运行 Eval。
 4. 门禁指标全部通过后发布；发布是事务性的，不影响在跑 Run。
 
