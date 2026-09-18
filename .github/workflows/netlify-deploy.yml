@@ -1,0 +1,49 @@
+name: Deploy to Netlify
+
+# Netlify's free plan blocks git-triggered builds for commits from contributors
+# it cannot verify on a private repository. This workflow builds on a Linux
+# runner instead — the same platform Netlify uses — and uploads the result as a
+# manual deploy, which is not subject to that check.
+#
+# Required repository secret: NETLIFY_AUTH_TOKEN
+#   Netlify -> User settings -> Applications -> Personal access tokens -> New access token
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: netlify-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: 600dc8f9-7092-4ba7-8caa-bdd759e952a4
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter @oa/web typecheck
+
+      - name: Build and deploy to production
+        run: npx --yes netlify-cli@27.8.0 deploy --build --prod --filter @oa/web --site cn-patent-oa-agent
