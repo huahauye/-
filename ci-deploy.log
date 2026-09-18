@@ -1,0 +1,251 @@
+Scope: all 5 workspace projects
+? Verifying lockfile against supply-chain policies (1840 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +1584
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 1584, reused 0, downloaded 0, added 0
+Progress: resolved 1584, reused 0, downloaded 1, added 0
+Progress: resolved 1584, reused 0, downloaded 55, added 0
+Progress: resolved 1584, reused 0, downloaded 61, added 0
+Progress: resolved 1584, reused 0, downloaded 63, added 0
+✓ Lockfile passes supply-chain policies (1840 entries in 11s)
+Progress: resolved 1584, reused 0, downloaded 64, added 0
+Packages are hard linked from the content-addressable store to the virtual store.
+  Content-addressable store is at: /home/runner/setup-pnpm/node_modules/.bin/store/v11
+  Virtual store is at:             node_modules/.pnpm
+Progress: resolved 1584, reused 0, downloaded 126, added 4
+Progress: resolved 1584, reused 0, downloaded 250, added 16
+Progress: resolved 1584, reused 0, downloaded 369, added 24
+Progress: resolved 1584, reused 0, downloaded 521, added 33
+Progress: resolved 1584, reused 0, downloaded 626, added 41
+Progress: resolved 1584, reused 0, downloaded 858, added 59
+Progress: resolved 1584, reused 0, downloaded 1077, added 75
+Progress: resolved 1584, reused 0, downloaded 1210, added 83
+Progress: resolved 1584, reused 0, downloaded 1379, added 98
+Progress: resolved 1584, reused 0, downloaded 1523, added 110
+Progress: resolved 1584, reused 0, downloaded 1583, added 212
+Progress: resolved 1584, reused 0, downloaded 1583, added 213
+Progress: resolved 1584, reused 0, downloaded 1583, added 757
+Progress: resolved 1584, reused 0, downloaded 1583, added 799
+Progress: resolved 1584, reused 0, downloaded 1583, added 998
+Progress: resolved 1584, reused 0, downloaded 1583, added 1417
+Progress: resolved 1584, reused 0, downloaded 1583, added 1584, done
+.../node_modules/unrs-resolver postinstall$ node postinstall.js
+.../node_modules/msgpackr-extract install$ node-gyp-build-optional-packages
+.../esbuild@0.18.20/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js
+.../node_modules/unrs-resolver postinstall: Done
+.../es5-ext@0.10.64/node_modules/es5-ext postinstall$  node -e "try{require('./_postinstall')}catch(e){}" || exit 0
+.../esbuild@0.28.2/node_modules/esbuild postinstall: Done
+.../esbuild@0.18.20/node_modules/esbuild postinstall: Done
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
+.../node_modules/msgpackr-extract install: Done
+.../esbuild@0.25.5/node_modules/esbuild postinstall$ node install.js
+.../es5-ext@0.10.64/node_modules/es5-ext postinstall: Done
+.../esbuild@0.20.2/node_modules/esbuild postinstall$ node install.js
+.../sharp@0.32.6/node_modules/sharp install$ (node install/libvips && node install/dll-copy && prebuild-install) || (node install/can-compile && node-gyp rebuild && node install/dll-copy)
+.../esbuild@0.19.12/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.20.2/node_modules/esbuild postinstall: Done
+.../esbuild@0.25.5/node_modules/esbuild postinstall: Done
+.../node_modules/contentful postinstall$ node print-beta-v10-message.js
+.../esbuild@0.28.0/node_modules/esbuild postinstall$ node install.js
+.../node_modules/contentful postinstall:   ---------------------------------------------------------------------------------------------
+.../node_modules/contentful postinstall:   contentful.js - the contentful delivery API (library)
+.../node_modules/contentful postinstall:   🚨 We have just released contentful.js v10 in Beta with enhanced ✨ TypeScript ✨ support! 🚨
+.../node_modules/contentful postinstall:   You can check it out on npm under the beta-v10 tag (go to the "Versions" tab to find it). 
+.../node_modules/contentful postinstall:   The migration guide and updated v10 README and can be found on the beta-v10 branch.
+.../node_modules/contentful postinstall:   README: https://github.com/contentful/contentful.js/blob/beta-v10/README.md
+.../node_modules/contentful postinstall:   MIGRATION GUIDE: https://github.com/contentful/contentful.js/blob/beta-v10/MIGRATION.md
+.../node_modules/contentful postinstall:   BETA BRANCH: https://github.com/contentful/contentful.js/tree/beta-v10
+.../node_modules/contentful postinstall:   ---------------------------------------------------------------------------------------------
+.../esbuild@0.19.12/node_modules/esbuild postinstall: Done
+.../node_modules/contentful postinstall: Done
+.../sharp@0.32.6/node_modules/sharp install: sharp: Downloading https://github.com/lovell/sharp-libvips/releases/download/v8.14.5/libvips-8.14.5-linux-x64.tar.br
+.../esbuild@0.28.0/node_modules/esbuild postinstall: Done
+.../sharp@0.32.6/node_modules/sharp install: sharp: Integrity check passed for linux-x64
+.../sharp@0.32.6/node_modules/sharp install: Done
+.../.pnpm/lmdb@2.5.3/node_modules/lmdb install$ node-gyp-build-optional-packages
+.../.pnpm/lmdb@2.5.3/node_modules/lmdb install: Done
+.../node_modules/@netlify/content-engine postinstall$ node scripts/postinstall.js
+.../node_modules/@netlify/content-engine postinstall$ node scripts/postinstall.js
+.../node_modules/content-engine postinstall$ node scripts/postinstall.js
+.../node_modules/content-engine postinstall: Done
+.../node_modules/@netlify/content-engine postinstall: Done
+.../node_modules/@netlify/content-engine postinstall: Done
+
+devDependencies:
++ @types/node 22.20.3
++ drizzle-kit 0.31.10
++ postgres 3.4.9
++ typescript 5.9.3
++ vitest 4.0.18
+
+Done in 34.7s using pnpm v11.19.0
+$ tsc --noEmit
+npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+ ›   Warning: --build is now the default and can safely be omitted.
+[96m[1m​[22m[39m
+[96m[1mNetlify Build                                                 [22m[39m
+[96m[1m────────────────────────────────────────────────────────────────[22m[39m
+[36m[1m​[22m[39m
+[36m[1m❯ Version[22m[39m
+  @netlify/build 37.0.0
+[36m[1m​[22m[39m
+[36m[1m❯ Flags[22m[39m
+  accountId: 6aabf0f53c571f1ab5c43d47
+  deployId: 6aad1e7c4200a04c5b8dcf36
+  packagePath: apps/web
+[36m[1m​[22m[39m
+[36m[1m❯ Current directory[22m[39m
+  /home/runner/work/-/-
+[36m[1m​[22m[39m
+[36m[1m❯ Config file[22m[39m
+  /home/runner/work/-/-/netlify.toml
+[36m[1m​[22m[39m
+[36m[1m❯ Context[22m[39m
+  production
+[36m[1m​[22m[39m
+[36m[1m❯ Installing extensions[22m[39m
+   - neon
+[36m[1m​[22m[39m
+[36m[1m❯ Using Next.js Runtime - v5.16.0[22m[39m
+[36m[1m​[22m[39m
+[36m[1m❯ Loading extensions[22m[39m
+   - neon
+[96m[1m​[22m[39m
+[96m[1mNetlify Database setup                                        [22m[39m
+[96m[1m────────────────────────────────────────────────────────────────[22m[39m
+​
+Provisioning database
+Loading migrations from [36mnetlify/database/migrations[39m directory:
+ - 0001_initial
+ - 0002_seed_reference_data
+​
+[90m(Netlify Database setup completed in 1s)[39m
+[96m[1m​[22m[39m
+[96m[1mbuild.command from netlify.toml                               [22m[39m
+[96m[1m────────────────────────────────────────────────────────────────[22m[39m
+​
+[36m$ pnpm --filter @oa/web build[39m
+$ next build
+▲ Next.js 16.3.5 (Turbopack)
+✓ Running next.config.ts took 32ms
+⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+- Experiments (use with caution):
+  · serverActions
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 16.1s
+  Running TypeScript ...
+  Finished TypeScript in 9.7s ...
+  Collecting page data using 1 worker ...
+  Generating static pages using 1 worker (0/12) ...
+  Generating static pages using 1 worker (3/12) 
+  Generating static pages using 1 worker (6/12) 
+  Generating static pages using 1 worker (9/12) 
+✓ Generating static pages using 1 worker (12/12) in 228ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ƒ /account
+├ ƒ /admin
+├ ƒ /admin/evals
+├ ƒ /admin/models
+├ ƒ /admin/runs
+├ ƒ /admin/runs/[runId]
+├ ƒ /admin/skills
+├ ƒ /api/admin/eval-cases
+├ ƒ /api/admin/evals
+├ ƒ /api/admin/evals/[evalRunId]
+├ ƒ /api/admin/model-profiles
+├ ƒ /api/admin/model-profiles/[id]
+├ ƒ /api/admin/runs
+├ ƒ /api/admin/runs/[runId]
+├ ƒ /api/admin/skill-versions/[versionId]/publish
+├ ƒ /api/admin/skill-versions/[versionId]/validate
+├ ƒ /api/admin/skills
+├ ƒ /api/admin/skills/[skillId]/versions/import
+├ ƒ /api/artifacts/[artifactId]/download-url
+├ ƒ /api/cases
+├ ƒ /api/cases/[caseId]
+├ ƒ /api/cases/[caseId]/claim-versions
+├ ƒ /api/cases/[caseId]/current-claims
+├ ƒ /api/cases/[caseId]/current-oa
+├ ƒ /api/cases/[caseId]/documents
+├ ƒ /api/cases/[caseId]/documents/[documentId]/classification
+├ ƒ /api/cases/[caseId]/readiness
+├ ƒ /api/cases/[caseId]/runs
+├ ƒ /api/cases/[caseId]/uploads/complete
+├ ƒ /api/cases/[caseId]/uploads/init
+├ ƒ /api/runs/[runId]
+├ ƒ /api/runs/[runId]/artifacts
+├ ƒ /api/runs/[runId]/cancel
+├ ƒ /cases
+├ ƒ /cases/[caseId]
+├ ƒ /cases/new
+├ ○ /login
+├ ○ /recovery
+├ ○ /register
+└ ƒ /runs/[runId]
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+​
+[90m(build.command completed in 32s)[39m
+[96m[1m​[22m[39m
+[96m[1mFunctions bundling                                            [22m[39m
+[96m[1m────────────────────────────────────────────────────────────────[22m[39m
+​
+Packaging Functions from [36mapps/web/.netlify/functions-internal[39m directory:
+ - ___netlify-server-handler/___netlify-server-handler.mjs
+​
+Packaging Functions from [36mnetlify/functions[39m directory:
+ - run-created.ts
+​
+​
+[90m(Functions bundling completed in 2s)[39m
+
+Deploying to Netlify
+────────────────────────────────────────────────────────────────
+
+Deploy path:        /home/runner/work/-/-/apps/web/.next
+Functions path:     /home/runner/work/-/-/netlify/functions
+Configuration path: /home/runner/work/-/-/netlify.toml
+
+[33m⠋[39m Uploading blobs to deploy store...
+
+[32m✔[39m Finished uploading blobs to deploy store
+[33m⠋[39m Hashing files...
+[33m⠋[39m Looking for a functions cache...
+[32m✔[39m Deploying functions from cache (use --skip-functions-cache to override)
+[32m✔[39m Finished hashing 24 files and 2 functions
+[33m⠋[39m CDN diffing files...
+[32m✔[39m CDN requesting 2 files and 2 functions and 0 edge functions
+[33m⠋[39m Uploading 4 files
+[32m✔[39m Finished uploading 4 assets
+[33m⠋[39m Waiting for deploy to go live...
+[32m✔[39m Deploy is live!
+[96m[1m​[22m[39m
+[96m[1mNetlify Build Complete                                        [22m[39m
+[96m[1m────────────────────────────────────────────────────────────────[22m[39m
+​
+[90m(Netlify Build completed in 1m 19.1s)[39m
+
+🚀 Deploy complete
+────────────────────────────────────────────────────────────────
+
+Production URL: <https://cn-patent-oa-agent.netlify.app>
+Unique deploy URL: <https://6aad1e7c4200a04c5b8dcf36--cn-patent-oa-agent.netlify.app>
+
+Build logs: <https://app.netlify.com/projects/cn-patent-oa-agent/deploys/6aad1e7c4200a04c5b8dcf36>
+Function logs: <https://app.netlify.com/projects/cn-patent-oa-agent/logs/functions>
+Edge function logs: <https://app.netlify.com/projects/cn-patent-oa-agent/logs/edge-functions>
+
+=== deploy step outcome: success ===
+=== runner: v22.23.2 / pnpm 11.19.0 ===
