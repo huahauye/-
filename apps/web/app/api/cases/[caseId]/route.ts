@@ -3,7 +3,7 @@ import { auditEvents, cases } from "@oa/domain/db";
 import { updateCaseSchema } from "@oa/schemas";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { errorResponse, readJson } from "@/lib/errors";
+import { assertSameOrigin, errorResponse, readJson } from "@/lib/errors";
 import { requireOwnedCase } from "@/lib/ownership";
 
 type Context = { params: Promise<{ caseId: string }> };
@@ -19,8 +19,9 @@ export async function PATCH(request: Request, { params }: Context) {
     return Response.json({ case: rows[0] });
   } catch (error) { return errorResponse(error); }
 }
-export async function DELETE(_: Request, { params }: Context) {
+export async function DELETE(request: Request, { params }: Context) {
   try {
+    assertSameOrigin(request);
     const user = await requireUser(); const { caseId } = await params; await requireOwnedCase(caseId, user.id);
     await db.transaction(async (tx) => {
       await tx.update(cases).set({ deletedAt: new Date(), updatedAt: new Date() }).where(and(eq(cases.id, caseId), eq(cases.ownerUserId, user.id)));
