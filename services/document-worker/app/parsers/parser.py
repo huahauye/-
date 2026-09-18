@@ -1,14 +1,20 @@
 from __future__ import annotations
+
+import logging
+import re
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-import re
-import shutil
-import subprocess
-import tempfile
+from uuid import uuid4
+
 import fitz
 import magic
 from docx import Document
 
+from ..aliyun import convert_office, recognize_image
+from ..storage import delete, list_keys, read_bytes
+
+logger = logging.getLogger("oa-worker.parser")
 
 ALLOWED_MAGIC = {
     "application/pdf",
@@ -27,16 +33,8 @@ class ParsedPage:
 
 
 def _ocr_image(image_path: Path) -> tuple[str, float]:
-    from paddleocr import PaddleOCR
-    engine = PaddleOCR(lang="ch", use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False)
-    result = engine.predict(str(image_path))
-    texts: list[str] = []
-    scores: list[float] = []
-    for item in result:
-        data = item.json.get("res", item.json) if hasattr(item, "json") else {}
-        texts.extend(data.get("rec_texts", []))
-        scores.extend(float(score) for score in data.get("rec_scores", []))
-    return "\n".join(texts), sum(scores) / len(scores) if scores else 0.0
+    """Recognise a rasterised page through Aliyun OCR."""
+    return recognize_image(image_path.read_bytes())
 
 
 def _parse_pdf(path: Path, temp_dir: Path) -> list[ParsedPage]:
@@ -70,20 +68,35 @@ def _parse_docx(path: Path) -> list[ParsedPage]:
     return [ParsedPage(1, "\n".join(text), False, 0.98)]
 
 
-def _convert_doc(path: Path, temp_dir: Path) -> Path:
-    isolated = temp_dir / "lo-profile"
-    isolated.mkdir()
-    command = ["libreoffice", f"-env:UserInstallation=file://{isolated.as_posix()}", "--headless", "--convert-to", "docx", "--outdir", str(temp_dir), str(path)]
-    result = subprocess.run(command, check=False, capture_output=True, timeout=180)
-    if result.returncode != 0:
-        raise RuntimeError("DOC_CONVERSION_FAILED")
-    converted = temp_dir / f"{path.stem}.docx"
-    if not converted.exists():
-        raise RuntimeError("DOC_CONVERSION_FAILED")
-    return converted
+def _parse_legacy_doc(storage_key: str) -> list[ParsedPage]:
+    """Extract text from a legacy .doc through Aliyun IMM.
+
+    IMM converts the object that is already in OSS, so the file never has to be
+    parsed by an in-container office suite.
+    """
+    prefix = f"{storage_key.rsplit('/', 1)[0]}/imm-doc/{uuid4().hex}/"
+    try:
+        convert_office(
+            storage_key,
+            prefix,
+            "txt",
+            source_type="doc",
+            options={"long_text": True, "hold_line_feed": True},
+        )
+        produced = sorted(key for key in list_keys(prefix) if key.lower().endswith(".txt"))
+        if not produced:
+            raise RuntimeError("DOC_CONVERSION_FAILED:imm-output-missing")
+        text = "\n".join(read_bytes(key).decode("utf-8", errors="replace") for key in produced).strip()
+    finally:
+        for key in list_keys(prefix):
+            try:
+                delete(key)
+            except Exception:  # cleanup is best effort
+                logger.warning("imm_cleanup_failed key=%s", key)
+    return [ParsedPage(1, text, False, 0.9 if text else 0.0)]
 
 
-def parse_document(path: Path, declared_mime: str) -> dict:
+def parse_document(path: Path, declared_mime: str, storage_key: str) -> dict:
     detected = magic.from_file(str(path), mime=True)
     if detected not in ALLOWED_MAGIC:
         raise RuntimeError("FILE_TYPE_UNSUPPORTED")
@@ -92,7 +105,7 @@ def parse_document(path: Path, declared_mime: str) -> dict:
         if detected == "application/pdf":
             pages = _parse_pdf(path, temp_dir)
         elif declared_mime == "application/msword" or detected == "application/msword":
-            pages = _parse_docx(_convert_doc(path, temp_dir))
+            pages = _parse_legacy_doc(storage_key)
         else:
             pages = _parse_docx(path)
     full_text = "\n\n".join(page.text for page in pages)

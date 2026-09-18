@@ -61,7 +61,7 @@ def parse_job(job: dict) -> dict:
         source = Path(folder) / "source"
         download(payload["storageKey"], source)
         if _digest(source) != payload["sha256"]: raise RuntimeError("UPLOAD_VERIFY_FAILED")
-        parsed = parse_document(source, payload["mimeType"])
+        parsed = parse_document(source, payload["mimeType"], payload["storageKey"])
     full_text = parsed.pop("fullText")
     parsed["documentVersionId"] = version_id
     raw_prefix = payload["storageKey"].rsplit("/raw/", 1)[0]
@@ -112,9 +112,8 @@ def build_job(job: dict) -> dict:
 def render_job(job: dict) -> dict:
     payload = job["payload"]
     with TemporaryDirectory(prefix="oa-render-", dir=settings().worker_temp_dir) as folder:
-        root = Path(folder); docx = root / "statement.docx"; pdf = root / "rendered.pdf"; pages = root / "pages"; archive = root / "pages.zip"
-        download(payload["docxKey"], docx)
-        result = render_docx(docx, pdf, pages, archive)
+        root = Path(folder); pdf = root / "rendered.pdf"; pages = root / "pages"; archive = root / "pages.zip"
+        result = render_docx(str(job["run_id"]), payload["docxKey"], pdf, pages, archive)
         upload(pdf, payload["pdfKey"], "application/pdf")
         archive_key = f"runs/{job['run_id']}/pages.zip"; upload(archive, archive_key, "application/zip")
         pdf_hash, archive_hash = _digest(pdf), _digest(archive)

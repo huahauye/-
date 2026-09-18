@@ -49,6 +49,9 @@ jobs:
       - name: Typecheck
         run: pnpm --filter @oa/web typecheck 2>&1 | tee -a ci-deploy.log
 
+      - name: Check document worker sources
+        run: python -m compileall -q services/document-worker/app services/document-worker/scripts 2>&1 | tee -a ci-deploy.log
+
       - name: Build and deploy to production
         id: deploy
         continue-on-error: true

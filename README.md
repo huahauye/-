@@ -10,10 +10,10 @@
 
 - **Web / API**：Next.js App Router、TypeScript、Netlify Identity。
 - **数据**：PostgreSQL + Drizzle；案件、文档、权利要求、Skill、Run 与产物均版本化。
-- **文件**：Cloudflare R2/S3 兼容直传，服务端只签发短时 URL 并核验对象。
+- **文件**：阿里云 OSS 直传（S3 兼容接口），服务端只签发短时 URL 并核验对象。
 - **工作流**：Netlify Async Workloads，固定 16 步，可重试、可审计。
-- **重任务**：独立 Python Worker 执行 PDF/DOC/DOCX 解析、OCR、DOCX 构建、
-  LibreOffice 渲染和逐页检查。
+- **重任务**：独立 Python Worker 负责编排、DOCX 生成与逐页渲染检查；格式转换交给
+  阿里云 IMM，扫描件识别交给阿里云 OCR，两者都在你自己的 OSS 与账号内完成。
 - **模型**：Provider Adapter + 后台 Model Profile；模型配置与 Secret 分离。
 - **Skill**：ZIP 导入、静态检查、脚本隔离、Staging、Eval 门禁与原子发布。
 
@@ -48,7 +48,7 @@ pnpm db:seed:netlify
 netlify deploy --build --prod
 ```
 
-部署前还需在 Netlify 配置 DeepSeek 与 Cloudflare R2 环境变量，并启用 Identity
+部署前还需在 Netlify 配置 DeepSeek 与阿里云 OSS 环境变量，并启用 Identity
 和 Async Workloads。`.env.netlify` 含远程数据库凭据，已被 `.env.*` 规则忽略，
 不得提交到 Git。
 
@@ -80,7 +80,7 @@ Next 16 的 `proxy.ts` 会走 Node middleware 打包路径，使本地 Windows �
 
 - 邮箱注册、登录、找回入口及用户/管理员权限隔离。
 - 案件 CRUD、软删除、所有权检查和审计事件。
-- R2 预签名直传、SHA-256/大小/类型校验、短时下载 URL。
+- OSS 预签名直传、SHA-256/大小/类型校验、短时下载 URL。
 - PDF、DOC、DOCX 解析；扫描 PDF OCR；元数据和权利要求候选提取。
 - 多轮 OA、D1/D2…归类、人工修正、Current OA/Claims 确认与 Readiness 阻断。
 - Run 输入、Skill、模型配置、解析器/构建器版本的不可变快照。
@@ -108,9 +108,10 @@ Netlify 站点至少配置：
 
 - `NETLIFY_DB_URL`（`netlify db init` 自动创建）
 - `NETLIFY_IDENTITY_URL`
-- `R2_ENDPOINT` / `R2_BUCKET` / `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`
+- `S3_ENDPOINT` / `S3_REGION` / `S3_BUCKET` / `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY`
+  （阿里云 OSS；`S3_FORCE_PATH_STYLE=false`）
 - `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL` 和 `DEEPSEEK_MODEL`（使用 DeepSeek 时）
-- Worker 使用的同一数据库与对象存储变量
+- Worker 使用的同一数据库与对象存储变量，外加 `ALIYUN_IMM_*` 与 `ALIYUN_OCR_*`
 - `ACTIVE_SKILL_SLUG`、`PARSER_VERSION`、`BUILDER_VERSION`
 
 生产必须设置 `AUTH_MODE=netlify`、`WORKFLOW_DRIVER=netlify`，且不得使用
@@ -118,10 +119,40 @@ Netlify 站点至少配置：
 
 ## 外置 Worker 部署
 
-文档 Worker 需要 LibreOffice、Poppler、OCR 和中文字体，不能运行在普通 Netlify
-Functions 中。将 `services/document-worker` 部署到支持容器的云平台（例如
-Railway、Render 或 Fly.io），无需在本机运行 Docker。Worker 需要能访问 Netlify
-DB 与 R2；`/healthz` 用于探针，多实例通过 `FOR UPDATE SKIP LOCKED` 安全竞争任务。
+Worker 只做编排、DOCX 生成和渲染 QA，重活全部交给阿里云托管服务，因此镜像里
+不再需要 Office 套件、中文字体或 Poppler：
+
+- **格式转换**（`.doc` 取文本、DOCX → PDF、逐页图片）由 **IMM** 完成，输入输出
+  都在你自己的 OSS 里，案件材料不离开你的账号。
+- **扫描件识别**由 **阿里云 OCR** 完成。
+- 权利要求切分、文档分类、元数据抽取和渲染 QA 判定仍是仓库内的受审代码。
+
+它仍然不能跑在 Netlify Functions 里（Python 运行时 + 常驻轮询队列），但镜像从
+约 1.5 GB 降到几百 MB，任何支持容器的平台都可以承载，例如阿里云 ECS、
+SAE / ACK Serverless，或 Railway / Render / Fly.io。Worker 需要能访问 Netlify
+DB 与 OSS；`/healthz` 用于探针，多实例通过 `FOR UPDATE SKIP LOCKED` 安全竞争任务。
+
+部署前先跑一次自检（在 `services/document-worker` 目录或容器内）：
+
+```bash
+python scripts/check_aliyun.py --imm --ocr sample-page.png
+```
+
+## 阿里云资源准备
+
+1. **OSS**：创建 Bucket，记录地域（推荐 `cn-hongkong`，见下）。Bucket 保持私有。
+2. **IMM**：开通智能媒体管理，创建项目，**项目地域必须与 Bucket 一致**，记下
+   `ProjectName`。
+3. **OCR**：开通文字识别 OCR（有免费额度）。
+4. **RAM**：创建一个只用于本项目的 RAM 用户并生成 AccessKey，授予最小权限：
+   - `oss:PutObject` / `oss:GetObject` / `oss:HeadObject` / `oss:DeleteObject` / `oss:ListObjects`（限定到该 Bucket）
+   - `imm:CreateOfficeConversionTask` / `imm:GetTask`（限定到该 IMM 项目）
+   - `ocr-api:RecognizeGeneral` / `ocr-api:RecognizeAdvanced`
+5. **CORS**：允许站点域名对该 Bucket 做 PUT/GET，允许自定义头（预签名里签了
+   `Content-Length` 与 `x-amz-meta-sha256`），至少暴露 `ETag`。
+
+内地地域注意：2025-03-20 起新用户在中国大陆地域的 Bucket 上调用数据 API 必须
+使用绑定的自定义域名，默认公网域名受限。选 `cn-hongkong` 可以完全绕开这条限制。
 
 ## Netlify 控制台配置
 
@@ -130,7 +161,7 @@ DB 与 R2；`/healthz` 用于探针，多实例通过 `FOR UPDATE SKIP LOCKED` �
 3. 创建 Netlify DB，注入数据库变量并执行迁移。
 4. 配置所有环境变量和 LLM Secret。
 5. 启用 Async Workloads，确认 `run.created` 已注册。
-6. 在 R2 配置仅允许站点域名的 PUT/GET CORS；禁止公开 Bucket。
+6. 在 OSS 配置仅允许站点域名的 PUT/GET CORS；禁止公开 Bucket。
 7. 将 Worker 健康检查、日志和告警接入托管平台。
 
 ## 管理员初始化
@@ -166,22 +197,24 @@ python -m compileall services/document-worker/app
 ```
 
 单元测试覆盖 Readiness、Skill ZIP 隔离和确定性元数据 QA；Playwright 包含公开页
-smoke 测试。涉及真实数据库、R2、Identity、OCR 与 LibreOffice 的集成/E2E 需在
-完整本地栈或 Preview 环境执行，真实案件材料不得提交到 Git。
+smoke 测试。涉及真实数据库、OSS、Identity、IMM 与 OCR 的集成/E2E 需在完整本地栈
+或 Preview 环境执行，真实案件材料不得提交到 Git。
 
 ## 已知限制
 
-- R2 和外置文档 Worker 仍是独立托管资源，Netlify 负责 Web/API/Identity/DB/工作流。
+- OSS、IMM、OCR 和外置文档 Worker 仍是独立托管资源，Netlify 负责
+  Web/API/Identity/DB/工作流。
 - Skill 管理 API 直接接收 ZIP；若站点函数请求体上限低于 20 MB，应按文档上传
-  流程扩展为 R2 预签名导入。
-- OCR、旧 DOC 和字体兼容性依赖部署镜像与输入质量，低质量结果会进入人工确认。
+  流程扩展为 OSS 预签名导入。
+- 旧 DOC 与扫描件的识别质量取决于 IMM/OCR 和输入质量，低质量结果会进入人工确认。
+- IMM 单文件上限 200 MB，与 `MAX_UPLOAD_MB` 一致；超出会被拒绝。
 - Eval 数据模型和发布门禁已实现，批量 Golden Case 调度界面仍是 V1 精简版。
 
 ## 剩余 P1
 
-- 在 Preview 环境完成 Identity 邮件链路、R2 CORS 和 200 MB 上传实测。
+- 在 Preview 环境完成 Identity 邮件链路、OSS CORS 和 200 MB 上传实测。
 - 用至少一套脱敏真实案件完成解析—分类—生成—渲染全链路 smoke test。
-- 为 Skill 大包增加 R2 直传导入，并完善 Eval 批量执行/版本对比视图。
+- 为 Skill 大包增加 OSS 直传导入，并完善 Eval 批量执行/版本对比视图。
 - 接入生产日志聚合、Run/Worker 告警、数据库备份与对象生命周期策略。
 
 实现采用 OpenAI Responses 的结构化输出、Netlify Identity 和 Async Workloads；
