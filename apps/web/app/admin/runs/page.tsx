@@ -1,0 +1,3 @@
+"use client";
+import { useEffect,useState } from "react";import Link from "next/link";
+export default function Page(){const[items,setItems]=useState<Array<Record<string,any>>>([]);useEffect(()=>{fetch("/api/admin/runs").then(r=>r.json()).then(v=>setItems(v.runs??[]))},[]);return <><span className="eyebrow">Admin</span><h1>运行调试</h1><section className="card"><table className="table"><thead><tr><th>Run</th><th>状态</th><th>案件</th><th>创建时间</th></tr></thead><tbody>{items.map(item=><tr key={item.id}><td><Link href={`/admin/runs/${item.id}`}>{item.id.slice(0,8)}</Link></td><td>{item.status}</td><td>{item.caseId.slice(0,8)}</td><td>{new Date(item.createdAt).toLocaleString("zh-CN")}</td></tr>)}</tbody></table></section></>}

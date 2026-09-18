@@ -1,0 +1,1 @@
+export default function Page(){return <><span className="eyebrow">Admin</span><h1>Skill 管理</h1><section className="card"><h2>版本化专业规则</h2><p className="muted">通过 Admin API 导入 ZIP；脚本会被标记并隔离，运行时只装载允许的文本资产。Published 版本不可修改，新 Run 会冻结当前 Active Published 版本。</p><code>POST /api/admin/skills/:skillId/versions/import</code></section></>}

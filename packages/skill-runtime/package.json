@@ -1,0 +1,15 @@
+{
+  "name": "@oa/skill-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": { "jszip": "3.10.1", "zod": "4.6.5" },
+  "devDependencies": { "typescript": "5.9.3", "vitest": "4.0.18" }
+}

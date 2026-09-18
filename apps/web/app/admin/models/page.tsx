@@ -1,0 +1,3 @@
+"use client";
+import { useEffect,useState } from "react";
+export default function Page(){const[items,setItems]=useState<any[]>([]);useEffect(()=>{fetch("/api/admin/model-profiles").then(r=>r.json()).then(v=>setItems(v.profiles??[]))},[]);return <><span className="eyebrow">Admin</span><h1>模型配置</h1><section className="card"><table className="table"><thead><tr><th>名称</th><th>用途</th><th>供应商</th><th>模型</th><th>密钥</th></tr></thead><tbody>{items.map(item=><tr key={item.id}><td>{item.name}</td><td>{item.purpose}</td><td>{item.provider}</td><td>{item.model}</td><td>{item.secretAvailability}</td></tr>)}</tbody></table></section></>}

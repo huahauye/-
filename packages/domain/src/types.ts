@@ -1,0 +1,50 @@
+export const DOCUMENT_ROLES = [
+  "UNKNOWN", "APPLICATION_ORIGINAL", "OFFICE_ACTION", "RESPONSE_STATEMENT",
+  "CLAIMS_CURRENT", "CLAIMS_REPLACEMENT", "CLAIMS_COMPARISON", "PRIOR_ART", "OTHER"
+] as const;
+export type DocumentRole = (typeof DOCUMENT_ROLES)[number];
+
+export const CASE_STATUSES = ["INCOMPLETE", "NEEDS_CONFIRMATION", "READY", "PROCESSING", "COMPLETED", "FAILED"] as const;
+export type CaseStatus = (typeof CASE_STATUSES)[number];
+
+export const RUN_STATUSES = ["QUEUED", "ANALYZING", "DRAFTING", "QUALITY_CHECK", "GENERATING_DOCUMENT", "COMPLETED", "FAILED", "QA_FAILED", "CANCELLED"] as const;
+export type RunStatus = (typeof RUN_STATUSES)[number];
+
+export const WORKFLOW_STEPS = [
+  "SNAPSHOT_CASE", "BUILD_TIMELINE", "RESOLVE_CURRENT_OA", "RESOLVE_CURRENT_CLAIMS",
+  "EXTRACT_OA_ISSUES", "BUILD_EVIDENCE_MATRIX", "GENERATE_STRATEGIES", "BUILD_AMENDMENT_PLAN",
+  "DRAFT_STATEMENT", "SEMANTIC_QA", "REPAIR_DRAFT", "BUILD_DOCX", "RENDER_DOCX",
+  "VISUAL_QA", "FINAL_METADATA_QA", "COMPLETE"
+] as const;
+export type WorkflowStep = (typeof WORKFLOW_STEPS)[number];
+
+export const ERROR_CODES = [
+  "AUTH_REQUIRED", "FORBIDDEN", "CASE_NOT_FOUND", "FILE_TOO_LARGE", "FILE_TYPE_UNSUPPORTED",
+  "UPLOAD_VERIFY_FAILED", "FILE_PARSE_FAILED", "OCR_FAILED", "DOC_CONVERSION_FAILED",
+  "CASE_IDENTITY_CONFLICT", "CURRENT_OA_UNRESOLVED", "CURRENT_CLAIMS_UNRESOLVED",
+  "PRIOR_ART_MISSING", "HISTORY_MISSING", "SKILL_NOT_PUBLISHED", "SKILL_INVALID",
+  "MODEL_PROFILE_MISSING", "MODEL_SECRET_MISSING", "MODEL_TIMEOUT", "MODEL_SCHEMA_INVALID",
+  "ISSUE_COVERAGE_FAILED", "CLAIM_SUPPORT_FAILED", "METADATA_QA_FAILED", "SEMANTIC_QA_FAILED",
+  "DOCX_BUILD_FAILED", "RENDER_QA_FAILED", "WORKER_UNAVAILABLE"
+] as const;
+export type ErrorCode = (typeof ERROR_CODES)[number];
+
+export interface CurrentDocumentCandidate {
+  id: string;
+  role: DocumentRole;
+  confirmed: boolean;
+  confidence: number | null;
+  oaRound: number | null;
+}
+
+export interface ReadinessCheck {
+  code: string;
+  status: "PASS" | "WARNING" | "BLOCKER";
+  message: string;
+  action?: "UPLOAD" | "CONFIRM";
+}
+
+export interface ReadinessResult {
+  status: "READY" | "INCOMPLETE" | "NEEDS_CONFIRMATION";
+  checks: ReadinessCheck[];
+}

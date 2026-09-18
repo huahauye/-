@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  '@netlify/content-engine': true
+  content-engine: true
+  contentful: true
+  es5-ext: true
+  esbuild: true
+  lmdb: true
+  msgpackr-extract: true
+  sharp: true
+  unrs-resolver: true

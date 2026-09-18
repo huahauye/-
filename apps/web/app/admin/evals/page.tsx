@@ -1,0 +1,1 @@
+export default function Page(){return <><span className="eyebrow">Admin</span><h1>Golden Case 评测</h1><section className="card"><h2>发布门禁</h2><p className="muted">默认要求 BLOCKER=0、元数据错误=0、Issue Coverage=100%、DOCX 构建与渲染成功。真实评测材料仅上传到私有对象存储，不进入 Git。</p></section></>}

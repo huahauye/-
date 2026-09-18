@@ -1,0 +1,4 @@
+import { eq } from "drizzle-orm";import { skills,skillVersions } from "@oa/domain/db";import { z } from "zod";import { requireAdmin } from "@/lib/auth";import { db } from "@/lib/db";import { errorResponse,readJson } from "@/lib/errors";
+const schema=z.object({slug:z.string().regex(/^[a-z0-9-]+$/),name:z.string().min(1)});
+export async function GET(){try{await requireAdmin();return Response.json({skills:await db.select({skill:skills,version:skillVersions}).from(skills).leftJoin(skillVersions,eq(skillVersions.skillId,skills.id))})}catch(error){return errorResponse(error)}}
+export async function POST(request:Request){try{await requireAdmin();const input=await readJson(request,schema);const rows=await db.insert(skills).values(input).returning();return Response.json({skill:rows[0]},{status:201})}catch(error){return errorResponse(error)}}
