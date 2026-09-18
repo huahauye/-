@@ -1,3 +1,4 @@
+-- Netlify Database reserves migration version 0; application migrations start at 1.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TYPE user_role AS ENUM ('USER','ADMIN');
 CREATE TYPE document_role AS ENUM ('UNKNOWN','APPLICATION_ORIGINAL','OFFICE_ACTION','RESPONSE_STATEMENT','CLAIMS_CURRENT','CLAIMS_REPLACEMENT','CLAIMS_COMPARISON','PRIOR_ART','OTHER');

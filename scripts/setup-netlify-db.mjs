@@ -4,7 +4,7 @@ import postgres from "postgres";
 const databaseUrl = process.env.NETLIFY_DB_URL ?? process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("NETLIFY_DB_URL is required. Run `netlify db init` and `netlify env:pull .env.netlify` first.");
 
-const migration = await readFile(new URL("../netlify/database/migrations/0000_initial.sql", import.meta.url), "utf8");
+const migration = await readFile(new URL("../netlify/database/migrations/0001_initial.sql", import.meta.url), "utf8");
 const sql = postgres(databaseUrl, { max: 1 });
 
 try {

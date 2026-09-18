@@ -68,7 +68,7 @@ netlify deploy --build --prod
 ## 数据库迁移
 
 初始迁移位于
-`netlify/database/migrations/0000_initial.sql`。创建 Netlify DB 并拉取变量后执行：
+`netlify/database/migrations/0001_initial.sql`。创建 Netlify DB 并拉取变量后执行：
 
 ```bash
 pnpm db:setup:netlify

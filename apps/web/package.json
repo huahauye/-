@@ -15,6 +15,7 @@
     "@aws-sdk/client-s3": "3.1133.0",
     "@aws-sdk/s3-request-presigner": "3.1133.0",
     "@netlify/async-workloads": "0.0.106",
+    "@netlify/database": "^2.0.1",
     "@netlify/identity": "2.0.0",
     "@oa/domain": "workspace:*",
     "@oa/schemas": "workspace:*",
