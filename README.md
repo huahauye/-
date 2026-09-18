@@ -143,7 +143,8 @@ python scripts/check_aliyun.py --imm --ocr sample-page.png
 1. **OSS**：创建 Bucket，记录地域（推荐 `cn-hongkong`，见下）。Bucket 保持私有。
 2. **IMM**：开通智能媒体管理，创建项目，**项目地域必须与 Bucket 一致**，记下
    `ProjectName`。
-3. **OCR**：开通文字识别 OCR（有免费额度）。
+3. **OCR**：开通文字识别 OCR（有免费额度）。注意 OCR 接口是**中心化端点**
+   `ocr-api.cn-hangzhou.aliyuncs.com`，不随地域提供，与 Bucket 地域无关。
 4. **RAM**：创建一个只用于本项目的 RAM 用户并生成 AccessKey，授予最小权限：
    - `oss:PutObject` / `oss:GetObject` / `oss:HeadObject` / `oss:DeleteObject` / `oss:ListObjects`（限定到该 Bucket）
    - `imm:CreateOfficeConversionTask` / `imm:GetTask`（限定到该 IMM 项目）

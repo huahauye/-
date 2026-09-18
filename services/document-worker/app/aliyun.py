@@ -73,7 +73,7 @@ def ocr_client():
         access_key_secret=cfg.ocr_key_secret,
     )
     config.endpoint = cfg.ocr_endpoint_resolved
-    config.region_id = cfg.imm_region_resolved
+    config.region_id = cfg.aliyun_ocr_region
     config.connect_timeout = 10_000
     config.read_timeout = 60_000
     return Client(config)
