@@ -10,7 +10,11 @@ function s3(): S3Client {
       endpoint: config.S3_ENDPOINT,
       region: config.S3_REGION,
       forcePathStyle: config.S3_FORCE_PATH_STYLE === "true",
-      credentials: { accessKeyId: config.S3_ACCESS_KEY_ID, secretAccessKey: config.S3_SECRET_ACCESS_KEY }
+      credentials: { accessKeyId: config.S3_ACCESS_KEY_ID, secretAccessKey: config.S3_SECRET_ACCESS_KEY },
+      // Aliyun OSS rejects the aws-chunked transfer encoding that flexible
+      // checksums introduce, so only compute a checksum when it is mandatory.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED"
     });
   }
   return client;
@@ -26,7 +30,15 @@ export function documentStorageKey(caseId: string, documentId: string, versionId
 
 export async function presignUpload(key: string, mimeType: string, size: number, sha256: string): Promise<string> {
   const config = storageConfig();
-  return getSignedUrl(s3(), new PutObjectCommand({ Bucket: config.S3_BUCKET, Key: key, ContentType: mimeType, ContentLength: size, Metadata: { sha256 } }), { expiresIn: 900 });
+  return getSignedUrl(
+    s3(),
+    new PutObjectCommand({ Bucket: config.S3_BUCKET, Key: key, ContentType: mimeType, ContentLength: size, Metadata: { sha256 } }),
+    // The presigner normally hoists x-amz-* metadata into the query string, which
+    // Aliyun OSS then reports as an unsigned header ("HeadersNotSigned:
+    // X-AMZ-META-SHA256"). Keeping it in SignedHeaders lets the browser send the
+    // header that uploads/complete later verifies against.
+    { expiresIn: 900, unhoistableHeaders: new Set(["x-amz-meta-sha256"]) }
+  );
 }
 
 export async function presignDownload(key: string, filename?: string): Promise<string> {
