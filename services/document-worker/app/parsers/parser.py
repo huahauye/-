@@ -126,7 +126,10 @@ def extract_metadata(text: str) -> dict:
     serial = re.search(r"(?:通知书编号|发文序号)[\s：:]*([^\s\n]+)", text)
     issue_date = re.search(r"(?:发文日|日期)[\s：:]*(\d{4}[-年]\d{1,2}[-月]\d{1,2}日?)", text)
     cited = []
-    for label, publication in re.findall(r"\b(D\d+)\b[^\n]{0,80}?\b((?:CN|EP|US|WO)\s?\d+[A-Z]\d?)\b", text, re.I):
+    # OCR emits each recognised line separately, so the label and its publication
+    # number often end up on different lines; allow the gap to contain newlines
+    # while still bounding it to 80 characters.
+    for label, publication in re.findall(r"\b(D\d+)\b[\s\S]{0,80}?\b((?:CN|EP|US|WO)\s?\d+[A-Z]\d?)\b", text, re.I):
         cited.append({"label": label.upper(), "publicationNo": publication.replace(" ", "").upper()})
     return {
         "applicationNo": application.group(1) if application else None,
