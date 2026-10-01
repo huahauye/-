@@ -1,5 +1,4 @@
 import logging
-import signal
 import threading
 import time
 from .config import settings
@@ -10,13 +9,28 @@ from .jobs import process_job
 logger = logging.getLogger("oa-worker")
 
 
+def error_code(error: Exception) -> str:
+    """Shorten a failure into a stable code for worker_jobs.error_code.
+
+    boto3 wraps S3 failures in a long English sentence; the admin debug view wants
+    something like S3_NOSUCHKEY instead.
+    """
+    response = getattr(error, "response", None)
+    if isinstance(response, dict):
+        code = (response.get("Error") or {}).get("Code")
+        if code:
+            return f"S3_{str(code).upper()}"[:100]
+    text = str(error).split(":", 1)[0].strip()
+    return (text or "WORKER_JOB_FAILED")[:100]
+
+
 class Worker:
     def __init__(self): self.stop_event = threading.Event()
     def stop(self, *_): self.stop_event.set()
 
     def run(self):
-        signal.signal(signal.SIGTERM, self.stop)
-        signal.signal(signal.SIGINT, self.stop)
+        # Signal handlers are registered by the process entry point: they can only
+        # be installed from the main thread, and this method runs in a worker thread.
         last_recovery = 0.0
         while not self.stop_event.is_set():
             try:
@@ -29,7 +43,7 @@ class Worker:
                 try:
                     complete_job(job["id"], process_job(job))
                 except Exception as error:
-                    code = str(error).split(":", 1)[0][:100] or "WORKER_JOB_FAILED"
+                    code = error_code(error)
                     logger.exception("job_failed job_id=%s code=%s", job["id"], code)
                     fail_job(job["id"], code)
             except Exception:

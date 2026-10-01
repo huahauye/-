@@ -1,4 +1,5 @@
 import logging
+import signal
 import threading
 import uvicorn
 from fastapi import FastAPI
@@ -18,6 +19,10 @@ def healthz():
 
 @app.on_event("startup")
 def startup():
+    # Signal handlers can only be installed from the main thread, so they are
+    # registered here rather than inside the polling thread.
+    signal.signal(signal.SIGTERM, worker.stop)
+    signal.signal(signal.SIGINT, worker.stop)
     threading.Thread(target=worker.run, name="document-worker", daemon=True).start()
 
 

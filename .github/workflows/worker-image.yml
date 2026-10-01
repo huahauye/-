@@ -1,0 +1,63 @@
+name: Build document worker image
+
+# Builds services/document-worker and pushes it to Aliyun ACR, where SAE pulls it.
+# The runner has Docker, so no local Docker install is needed.
+#
+# Required repository secrets:
+#   ACR_REGISTRY   e.g. registry.cn-hongkong.aliyuncs.com
+#   ACR_NAMESPACE  e.g. your-namespace
+#   ACR_USERNAME   ACR access credential (or a RAM user with ACR push rights)
+#   ACR_PASSWORD   the matching password
+
+# NOTE: this workflow is manual-only until the ACR secrets below exist, so that
+# pushes touching services/document-worker/ do not produce failing runs. Add the
+# four secrets and then re-enable the push trigger:
+#
+#   push:
+#     branches: [main]
+#     paths:
+#       - "services/document-worker/**"
+#       - ".github/workflows/worker-image.yml"
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: worker-image
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify the worker sources compile
+        run: python -m compileall -q services/document-worker/app services/document-worker/scripts
+
+      - name: Log in to Aliyun ACR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: services/document-worker
+          push: true
+          tags: |
+            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/oa-document-worker:latest
+            ${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/oa-document-worker:${{ github.sha }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Document worker image pushed"
+            echo ""
+            echo "- \`${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/oa-document-worker:latest\`"
+            echo "- \`${{ secrets.ACR_REGISTRY }}/${{ secrets.ACR_NAMESPACE }}/oa-document-worker:${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
