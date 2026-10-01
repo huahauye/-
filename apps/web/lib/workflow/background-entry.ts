@@ -31,19 +31,31 @@ function sleepMs(duration: string | number): number {
 }
 
 export default async function handler(request: Request): Promise<Response> {
+  const dbUrl = process.env.NETLIFY_DB_URL ?? process.env.DATABASE_URL ?? "";
+  let dbHost = "unset";
+  try {
+    dbHost = dbUrl ? new URL(dbUrl).host : "unset";
+  } catch {
+    dbHost = "unparseable";
+  }
+  console.log("dispatch_start", JSON.stringify({ dbHost, source: process.env.NETLIFY_DB_URL ? "NETLIFY_DB_URL" : "DATABASE_URL" }));
+
   let runId = "";
   try {
     const body = (await request.json()) as { runId?: unknown };
     runId = typeof body.runId === "string" ? body.runId : "";
-  } catch {
+  } catch (error) {
+    console.log("dispatch_body_unreadable", error instanceof Error ? error.message : String(error));
     return new Response("invalid JSON body", { status: 400 });
   }
+  console.log("dispatch_run_id", runId);
   if (!runId) return new Response("runId is required", { status: 400 });
 
   // Cheap guard for a publicly reachable endpoint: only a run that already
   // exists and is still waiting may be started.
   const rows = await db.select({ id: runs.id, status: runs.status }).from(runs).where(eq(runs.id, runId)).limit(1);
   const run = rows[0];
+  console.log("dispatch_guard", JSON.stringify({ found: Boolean(run), status: run?.status ?? null }));
   if (!run) return new Response("unknown run", { status: 404 });
   if (run.status !== "QUEUED") return new Response(`run is ${run.status}`, { status: 409 });
 
