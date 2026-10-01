@@ -18,7 +18,11 @@ await build({
   target: "node22",
   format: "cjs",
   sourcemap: false,
-  logLevel: "info"
+  logLevel: "info",
+  // A CommonJS bundle exposes the entry point as `exports.default`, but
+  // Netlify's function loader also accepts the legacy `handler` export name.
+  // Publishing both removes any doubt about which one the runtime picks up.
+  footer: { js: "module.exports.handler = module.exports.default;" }
 });
 
 console.log("bundled netlify/functions/run-workflow-background.js");

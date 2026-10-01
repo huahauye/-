@@ -159,8 +159,12 @@ python scripts/check_aliyun.py --imm --ocr sample-page.png
 2. 开启 Identity 的邮箱注册、确认邮件和密码恢复模板。
 3. 创建 Netlify DB，注入数据库变量并执行迁移。
 4. 配置所有环境变量和 LLM Secret。
-5. 确认 `apps/web/netlify/functions/run-workflow-background.ts` 已作为函数部署
-   （`/.netlify/functions/run-workflow-background` 返回 202）。
+5. 确认后台函数已打包并部署：`next build` 之后会执行
+   `apps/web/scripts/bundle-background-function.mjs`，把
+   `apps/web/lib/workflow/background-entry.ts` 打成
+   `apps/web/netlify/functions/run-workflow-background.js`（自包含 CJS）。
+   后台模式由文件名 `-background` 后缀与 `config.background = true` 双重声明。
+   `POST /.netlify/functions/run-workflow-background` 应返回 202。
 6. 在 OSS 配置仅允许站点域名的 PUT/GET CORS；禁止公开 Bucket。
 7. 将 Worker 健康检查、日志和告警接入托管平台。
 
