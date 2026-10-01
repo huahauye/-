@@ -5,50 +5,52 @@ Progress: resolved 1, reused 0, downloaded 0, added 0
 Packages: +1584
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Progress: resolved 1584, reused 0, downloaded 0, added 0
-Progress: resolved 1584, reused 0, downloaded 1, added 0
-Progress: resolved 1584, reused 0, downloaded 23, added 0
+Progress: resolved 1584, reused 0, downloaded 18, added 0
 Progress: resolved 1584, reused 0, downloaded 50, added 0
-Progress: resolved 1584, reused 0, downloaded 58, added 0
-Progress: resolved 1584, reused 0, downloaded 61, added 0
+Progress: resolved 1584, reused 0, downloaded 60, added 0
 Progress: resolved 1584, reused 0, downloaded 62, added 0
+Progress: resolved 1584, reused 0, downloaded 63, added 0
+Progress: resolved 1584, reused 0, downloaded 64, added 0
 Packages are hard linked from the content-addressable store to the virtual store.
   Content-addressable store is at: /home/runner/setup-pnpm/node_modules/.bin/store/v11
   Virtual store is at:             node_modules/.pnpm
-Progress: resolved 1584, reused 0, downloaded 77, added 4
-Progress: resolved 1584, reused 0, downloaded 103, added 4
-Progress: resolved 1584, reused 0, downloaded 104, added 4
-Progress: resolved 1584, reused 0, downloaded 121, added 4
-Progress: resolved 1584, reused 0, downloaded 209, added 12
-Progress: resolved 1584, reused 0, downloaded 253, added 16
-✓ Lockfile passes supply-chain policies (1840 entries in 15.6s)
-Progress: resolved 1584, reused 0, downloaded 394, added 24
-Progress: resolved 1584, reused 0, downloaded 570, added 40
-Progress: resolved 1584, reused 0, downloaded 803, added 56
-Progress: resolved 1584, reused 0, downloaded 1048, added 76
-Progress: resolved 1584, reused 0, downloaded 1231, added 92
-Progress: resolved 1584, reused 0, downloaded 1422, added 104
-Progress: resolved 1584, reused 0, downloaded 1583, added 225
-Progress: resolved 1584, reused 0, downloaded 1583, added 928
+Progress: resolved 1584, reused 0, downloaded 82, added 4
+Progress: resolved 1584, reused 0, downloaded 123, added 4
+Progress: resolved 1584, reused 0, downloaded 148, added 8
+Progress: resolved 1584, reused 0, downloaded 215, added 12
+Progress: resolved 1584, reused 0, downloaded 246, added 12
+Progress: resolved 1584, reused 0, downloaded 277, added 16
+✓ Lockfile passes supply-chain policies (1840 entries in 14.9s)
+Progress: resolved 1584, reused 0, downloaded 372, added 24
+Progress: resolved 1584, reused 0, downloaded 559, added 36
+Progress: resolved 1584, reused 0, downloaded 820, added 55
+Progress: resolved 1584, reused 0, downloaded 1007, added 67
+Progress: resolved 1584, reused 0, downloaded 1233, added 84
+Progress: resolved 1584, reused 0, downloaded 1501, added 104
+Progress: resolved 1584, reused 0, downloaded 1533, added 106
+Progress: resolved 1584, reused 0, downloaded 1583, added 758
 Progress: resolved 1584, reused 0, downloaded 1583, added 1584, done
 .../node_modules/unrs-resolver postinstall$ node postinstall.js
 .../node_modules/msgpackr-extract install$ node-gyp-build-optional-packages
 .../esbuild@0.18.20/node_modules/esbuild postinstall$ node install.js
-.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
 .../esbuild@0.28.2/node_modules/esbuild postinstall$ node install.js
 .../node_modules/unrs-resolver postinstall: Done
-.../es5-ext@0.10.64/node_modules/es5-ext postinstall$  node -e "try{require('./_postinstall')}catch(e){}" || exit 0
+.../esbuild@0.25.12/node_modules/esbuild postinstall$ node install.js
 .../esbuild@0.18.20/node_modules/esbuild postinstall: Done
-.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
-.../esbuild@0.25.5/node_modules/esbuild postinstall$ node install.js
+.../es5-ext@0.10.64/node_modules/es5-ext postinstall$  node -e "try{require('./_postinstall')}catch(e){}" || exit 0
 .../esbuild@0.28.2/node_modules/esbuild postinstall: Done
-.../es5-ext@0.10.64/node_modules/es5-ext postinstall: Done
 .../node_modules/msgpackr-extract install: Done
+.../esbuild@0.25.5/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.25.12/node_modules/esbuild postinstall: Done
 .../esbuild@0.20.2/node_modules/esbuild postinstall$ node install.js
+.../es5-ext@0.10.64/node_modules/es5-ext postinstall: Done
 .../esbuild@0.25.5/node_modules/esbuild postinstall: Done
 .../esbuild@0.19.12/node_modules/esbuild postinstall$ node install.js
-.../node_modules/contentful postinstall$ node print-beta-v10-message.js
 .../sharp@0.32.6/node_modules/sharp install$ (node install/libvips && node install/dll-copy && prebuild-install) || (node install/can-compile && node-gyp rebuild && node install/dll-copy)
 .../esbuild@0.20.2/node_modules/esbuild postinstall: Done
+.../node_modules/contentful postinstall$ node print-beta-v10-message.js
+.../esbuild@0.19.12/node_modules/esbuild postinstall: Done
+.../esbuild@0.28.0/node_modules/esbuild postinstall$ node install.js
 .../node_modules/contentful postinstall:   ---------------------------------------------------------------------------------------------
 .../node_modules/contentful postinstall:   contentful.js - the contentful delivery API (library)
 .../node_modules/contentful postinstall:   🚨 We have just released contentful.js v10 in Beta with enhanced ✨ TypeScript ✨ support! 🚨
@@ -59,10 +61,8 @@ Progress: resolved 1584, reused 0, downloaded 1583, added 1584, done
 .../node_modules/contentful postinstall:   BETA BRANCH: https://github.com/contentful/contentful.js/tree/beta-v10
 .../node_modules/contentful postinstall:   ---------------------------------------------------------------------------------------------
 .../node_modules/contentful postinstall: Done
-.../esbuild@0.19.12/node_modules/esbuild postinstall: Done
-.../esbuild@0.28.0/node_modules/esbuild postinstall$ node install.js
-.../sharp@0.32.6/node_modules/sharp install: sharp: Downloading https://github.com/lovell/sharp-libvips/releases/download/v8.14.5/libvips-8.14.5-linux-x64.tar.br
 .../esbuild@0.28.0/node_modules/esbuild postinstall: Done
+.../sharp@0.32.6/node_modules/sharp install: sharp: Downloading https://github.com/lovell/sharp-libvips/releases/download/v8.14.5/libvips-8.14.5-linux-x64.tar.br
 .../sharp@0.32.6/node_modules/sharp install: sharp: Integrity check passed for linux-x64
 .../sharp@0.32.6/node_modules/sharp install: Done
 .../.pnpm/lmdb@2.5.3/node_modules/lmdb install$ node-gyp-build-optional-packages
@@ -70,9 +70,9 @@ Progress: resolved 1584, reused 0, downloaded 1583, added 1584, done
 .../node_modules/@netlify/content-engine postinstall$ node scripts/postinstall.js
 .../node_modules/@netlify/content-engine postinstall$ node scripts/postinstall.js
 .../node_modules/content-engine postinstall$ node scripts/postinstall.js
+.../node_modules/@netlify/content-engine postinstall: Done
+.../node_modules/@netlify/content-engine postinstall: Done
 .../node_modules/content-engine postinstall: Done
-.../node_modules/@netlify/content-engine postinstall: Done
-.../node_modules/@netlify/content-engine postinstall: Done
 
 devDependencies:
 + @types/node 22.20.3
@@ -81,7 +81,7 @@ devDependencies:
 + typescript 5.9.3
 + vitest 4.0.18
 
-Done in 30s using pnpm v11.19.0
+Done in 27.8s using pnpm v11.19.0
 $ tsc --noEmit
 npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
 ──────────────────────┐
@@ -91,5 +91,5 @@ npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMExcep
 --- NETLIFY_SITE_ID=600dc8f9-7092-4ba7-8caa-bdd759e952a4 ---
  ›   Error: Unauthorized: could not retrieve project
 
-=== deploy step outcome: success ===
+=== deploy step outcome: failure ===
 === runner: v22.23.3 / pnpm 11.19.0 ===
