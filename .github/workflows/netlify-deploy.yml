@@ -52,13 +52,21 @@ jobs:
       - name: Check document worker sources
         run: python -m compileall -q services/document-worker/app services/document-worker/scripts 2>&1 | tee -a ci-deploy.log
 
+      - name: Show which project the CLI resolves
+        continue-on-error: true
+        env:
+          CI: "true"
+        run: |
+          npx --yes netlify-cli@27.8.0 status 2>&1 | tee -a ci-deploy.log
+          echo "--- NETLIFY_SITE_ID=${NETLIFY_SITE_ID} ---" | tee -a ci-deploy.log
+
       - name: Build and deploy to production
         id: deploy
         continue-on-error: true
         run: npx --yes netlify-cli@27.8.0 deploy --build --prod --filter @oa/web 2>&1 | tee -a ci-deploy.log
 
       - name: Publish the run log
-        if: steps.deploy.outcome != 'success'
+        if: always()
         run: |
           echo "" >> ci-deploy.log
           echo "=== deploy step outcome: ${{ steps.deploy.outcome }} ===" >> ci-deploy.log
