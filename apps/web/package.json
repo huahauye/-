@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/bundle-background-function.mjs",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -36,6 +36,7 @@
     "@types/node": "22.20.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "esbuild": "0.28.2",
     "eslint": "9.39.2",
     "eslint-config-next": "16.3.5",
     "typescript": "5.9.3",
