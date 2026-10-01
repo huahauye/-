@@ -68,12 +68,16 @@ jobs:
 
       # pipefail matters: without it the pipeline exit status is tee's, so a
       # failed deploy would be reported as a success and ship nothing.
+      #
+      # --skip-functions-cache is deliberate: the background function answered
+      # 202 without ever running, and a stale cached function bundle is one of
+      # the two remaining explanations, so the cache is not trusted here.
       - name: Build and deploy to production
         id: deploy
         continue-on-error: true
         run: |
           set -o pipefail
-          npx --yes netlify-cli@27.8.0 deploy --build --prod --filter @oa/web 2>&1 | tee -a ci-deploy.log
+          npx --yes netlify-cli@27.8.0 deploy --build --prod --skip-functions-cache --filter @oa/web 2>&1 | tee -a ci-deploy.log
 
       - name: Publish the run log
         if: always()
