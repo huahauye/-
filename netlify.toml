@@ -1,7 +1,9 @@
 [build]
 command = "pnpm --filter @oa/web build"
 publish = "apps/web/.next"
-functions = "netlify/functions"
+# Functions live inside the app so their imports resolve against apps/web's
+# node_modules; from the repository root pnpm only exposes root devDependencies.
+functions = "apps/web/netlify/functions"
 
 [build.environment]
 NODE_VERSION = "22"

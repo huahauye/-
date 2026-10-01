@@ -11,7 +11,7 @@
 - **Web / API**：Next.js App Router、TypeScript、Netlify Identity。
 - **数据**：PostgreSQL + Drizzle；案件、文档、权利要求、Skill、Run 与产物均版本化。
 - **文件**：阿里云 OSS 直传（S3 兼容接口），服务端只签发短时 URL 并核验对象。
-- **工作流**：Netlify Async Workloads，固定 16 步，可重试、可审计。
+- **工作流**：由 Netlify Background Function 驱动固定 16 步流程，步骤结果落库可审计。
 - **重任务**：独立 Python Worker 负责编排、DOCX 生成与逐页渲染检查；格式转换交给
   阿里云 IMM，扫描件识别交给阿里云 OCR，两者都在你自己的 OSS 与账号内完成。
 - **模型**：Provider Adapter + 后台 Model Profile；模型配置与 Secret 分离。
@@ -25,8 +25,7 @@ packages/domain/                领域类型、Readiness、Drizzle schema
 packages/schemas/               模型与 API 的 Zod 结构化输出约束
 packages/skill-runtime/         Skill ZIP 安全检查与运行时清单
 netlify/database/migrations/    PostgreSQL 初始迁移
-netlify/async-workloads/        Run 工作流事件处理器
-netlify/functions/              Netlify 可发现的函数入口
+apps/web/netlify/functions/     Background Function：驱动 16 步 Run 工作流
 services/document-worker/       外置文档 Worker 与 Docker 镜像
 skills/seed/                    可导入的基线 Skill 源文件
 fixtures/private/               私有 Golden Case 占位目录（内容不入 Git）
@@ -48,9 +47,8 @@ pnpm db:seed:netlify
 netlify deploy --build --prod
 ```
 
-部署前还需在 Netlify 配置 DeepSeek 与阿里云 OSS 环境变量，并启用 Identity
-和 Async Workloads。`.env.netlify` 含远程数据库凭据，已被 `.env.*` 规则忽略，
-不得提交到 Git。
+部署前还需在 Netlify 配置 DeepSeek 与阿里云 OSS 环境变量，并启用 Identity。
+`.env.netlify` 含远程数据库凭据，已被 `.env.*` 规则忽略，不得提交到 Git。
 
 ### 必须使用 Linux 构建
 
@@ -161,7 +159,8 @@ python scripts/check_aliyun.py --imm --ocr sample-page.png
 2. 开启 Identity 的邮箱注册、确认邮件和密码恢复模板。
 3. 创建 Netlify DB，注入数据库变量并执行迁移。
 4. 配置所有环境变量和 LLM Secret。
-5. 启用 Async Workloads，确认 `run.created` 已注册。
+5. 确认 `apps/web/netlify/functions/run-workflow-background.ts` 已作为函数部署
+   （`/.netlify/functions/run-workflow-background` 返回 202）。
 6. 在 OSS 配置仅允许站点域名的 PUT/GET CORS；禁止公开 Bucket。
 7. 将 Worker 健康检查、日志和告警接入托管平台。
 
@@ -218,5 +217,12 @@ smoke 测试。涉及真实数据库、OSS、Identity、IMM 与 OCR 的集成/E2
 - 为 Skill 大包增加 OSS 直传导入，并完善 Eval 批量执行/版本对比视图。
 - 接入生产日志聚合、Run/Worker 告警、数据库备份与对象生命周期策略。
 
-实现采用 OpenAI Responses 的结构化输出、Netlify Identity 和 Async Workloads；
-部署时请复核对应平台的最新官方文档。
+实现采用 OpenAI Responses 的结构化输出、Netlify Identity 和 Background
+Functions；部署时请复核对应平台的最新官方文档。
+
+> Run 工作流早期版本使用 Netlify Async Workloads。该扩展的内部路由函数
+> （`async-workloads-router` / `async-workloads-scheduler`）无法通过 CLI /
+> GitHub Actions 的手工部署链路下发，事件因此在路由处 404 并被 SDK 静默吞掉，
+> Run 会永久停在 `QUEUED`。现已改为 Background Function 驱动：单次调用上限
+> 15 分钟，工作流内置 13 分钟的自我截止时间，失败时把 run 标记为 `FAILED`
+> 并写入错误码。
