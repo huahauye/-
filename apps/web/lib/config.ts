@@ -12,6 +12,8 @@ const serverConfigSchema = z.object({
   BOOTSTRAP_FIRST_ADMIN: z.enum(["true", "false"]).default("false"),
   PARSER_VERSION: z.string().default("1.0.0"),
   BUILDER_VERSION: z.string().default("1.0.0"),
+  /** How many times the QA repair loop may rewrite the draft. */
+  MAX_REPAIR_ATTEMPTS: z.coerce.number().int().positive().max(5).default(2),
   APP_GIT_SHA: z.string().default("local"),
   S3_ENDPOINT: z.string().url().optional(),
   S3_REGION: z.string().default("auto"),

@@ -9,6 +9,7 @@ import {
   runInputs, runModelSnapshots, runs, runSteps, skillVersions, workerJobs
 } from "@oa/domain/db";
 import { db } from "../db";
+import { serverConfig } from "../config";
 import { createProvider } from "../llm";
 import { getObjectText, putObject } from "../storage";
 import { deterministicStatementQa } from "./metadata-qa";
@@ -181,10 +182,26 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
     return { value, artifactId: artifact.id };
   }));
 
+  // Identification fields are case facts, not model output: they are stamped
+  // from the case snapshot so the statement can never carry a hallucinated
+  // application number, OA date or OA round.
+  const patentCase = snapshot.patentCase as { applicationNo?: string | null; currentOaDocumentId?: string | null; applicant?: string | null };
+  const oa = snapshot.documents.find((doc) => doc.id === patentCase.currentOaDocumentId);
+  const metadata = (oa?.metadata ?? {}) as { issueDate?: string; serialNo?: string };
+  const identification = {
+    applicationNumber: patentCase.applicationNo ?? "",
+    applicant: patentCase.applicant ?? "",
+    oaRound: oa?.oaRound ? `第${oa.oaRound}次` : "",
+    oaDate: metadata.issueDate ?? "",
+    oaSerial: metadata.serialNo ?? ""
+  };
+  const stampIdentification = (value: Statement): Statement => ({ ...value, ...identification });
+
   await db.update(runs).set({ status: "DRAFTING" }).where(eq(runs.id, runId));
   let statement = await step.run("09-draft-statement", () => executeStep(runId, "DRAFT_STATEMENT", async () => {
-    const value = await structured<Statement>(runId, "DRAFT_STATEMENT", "DRAFTING", "statement", statementSchema,
-      "起草正式中文《意见陈述书》工作稿。依次写案件识别、修改说明、修改依据、逐项答复、独立权利要求的新颖性/创造性、其他权利要求和结论。正文不得出现内部检查信息，reviewNotes 必须为空。每个段落用 issueIds 标记所答复的问题。", { snapshot, issues, matrix, strategy, amendment });
+    const drafted = await structured<Statement>(runId, "DRAFT_STATEMENT", "DRAFTING", "statement", statementSchema,
+      "起草正式中文《意见陈述书》工作稿。依次写案件识别、修改说明、逐项答复、独立权利要求的创造性/新颖性、其他权利要求和结论；只有在确实修改了权利要求时才写“修改依据”一节，未作修改时不得保留该章节，改为在“修改说明”中说明未作修改及其理由。论述技术效果时只能引用申请文件（说明书或权利要求书）中已记载的效果，说明书未记载的效果不得作为主张，改为基于权利要求技术特征的技术分析。指代对比文件时统一使用案件材料已定义的 D 标签。正文不得出现内部检查信息，reviewNotes 必须为空。每个段落用 issueIds 标记所答复的问题。", { snapshot, issues, matrix, strategy, amendment });
+    const value = stampIdentification(drafted);
     const artifact = await writeArtifact(runId, "STATEMENT_JSON", "statement.json", value);
     return { value, artifactId: artifact.id };
   }));
@@ -198,16 +215,24 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
   }));
   if (qa.findings.length) await db.insert(qaFindings).values(qa.findings.map((finding) => ({ runId, ...finding })));
 
-  const openSevere = qa.findings.filter((finding) => finding.severity === "BLOCKER" || finding.severity === "ERROR");
-  if (openSevere.length) {
-    statement = await step.run("11-repair-draft", () => executeStep(runId, "REPAIR_DRAFT", async () => {
-      const value = await structured<Statement>(runId, "REPAIR_DRAFT", "DRAFTING", "statement_repaired", statementSchema,
-        "仅根据 OPEN QA findings 修复答复稿，不改变 Current Claims 和已选策略，不得增加无证据内容。", { statement, findings: openSevere, evidence: matrix });
-      const artifact = await writeArtifact(runId, "STATEMENT_JSON", "statement.json", value);
-      const verification = await structured<typeof qaReportSchema._output>(runId, "VERIFY_REPAIR", "QA", "qa_report_repaired", qaReportSchema,
+  const isSevere = (finding: { severity: string }) => finding.severity === "BLOCKER" || finding.severity === "ERROR";
+  let remainingSevere = qa.findings.filter(isSevere);
+  // Repair is retried up to MAX_REPAIR_ATTEMPTS times: a single pass often
+  // leaves findings that a second, differently-seeded pass fixes.
+  const maxRepairAttempts = Math.max(1, serverConfig().MAX_REPAIR_ATTEMPTS);
+  for (let attempt = 1; attempt <= maxRepairAttempts && remainingSevere.length; attempt += 1) {
+    const stepKey = attempt === 1 ? "REPAIR_DRAFT" : `REPAIR_DRAFT_${attempt}`;
+    const stepId = attempt === 1 ? "11-repair-draft" : `11-repair-draft-${attempt}`;
+    const findingsForAttempt = remainingSevere;
+    statement = await step.run(stepId, () => executeStep(runId, stepKey, async () => {
+      const repaired = await structured<Statement>(runId, stepKey, "DRAFTING", `statement_repaired_${attempt}`, statementSchema,
+        "仅根据 OPEN QA findings 修复答复稿，不改变 Current Claims 和已选策略，不得增加无证据内容。", { statement, findings: findingsForAttempt, evidence: matrix });
+      const value = stampIdentification(repaired);
+      const artifact = await writeArtifact(runId, "STATEMENT_JSON", "statement.json", value, false, attempt + 1);
+      const verification = await structured<typeof qaReportSchema._output>(runId, "VERIFY_REPAIR", "QA", `qa_report_repaired_${attempt}`, qaReportSchema,
         "重新独立检查已修复答复稿。不得因上一轮标记已修复而放宽标准；仍存在的问题必须再次输出。", { snapshot, issues, matrix, amendment, statement: value });
-      await writeArtifact(runId, "QA_REPORT", "qa-report-repaired.json", verification, false, 2);
-      const remainingSevere = verification.findings.filter((finding) => finding.severity === "BLOCKER" || finding.severity === "ERROR");
+      await writeArtifact(runId, "QA_REPORT", "qa-report-repaired.json", verification, false, attempt + 1);
+      remainingSevere = verification.findings.filter(isSevere);
       if (remainingSevere.length) {
         await db.insert(qaFindings).values(remainingSevere.map((finding) => ({ runId, ...finding })));
       } else {
@@ -215,16 +240,14 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
       }
       return { value, artifactId: artifact.id };
     }));
-  } else {
+  }
+  if (!remainingSevere.length && !qa.findings.some(isSevere)) {
     await step.run("11-repair-not-required", () => markStep(runId, "REPAIR_DRAFT", "SUCCEEDED"));
   }
 
-  const patentCase = snapshot.patentCase as { applicationNo?: string | null };
-  const oa = snapshot.documents.find((doc) => doc.id === (snapshot.patentCase as { currentOaDocumentId?: string }).currentOaDocumentId);
-  const metadata = (oa?.metadata ?? {}) as { issueDate?: string; serialNo?: string };
   const deterministic = deterministicStatementQa(statement, {
-    applicationNumber: patentCase.applicationNo ?? "", oaDate: metadata.issueDate ?? "", oaSerial: metadata.serialNo ?? "",
-    oaRound: oa?.oaRound ? `第${oa.oaRound}次` : "", issueIds: issues.issues.map((issue) => issue.issueId)
+    ...identification,
+    issueIds: issues.issues.map((issue) => issue.issueId)
   });
   if (deterministic.length) {
     await db.insert(qaFindings).values(deterministic.map((finding) => ({ runId, ...finding, expected: null, actual: null, basis: null })));
@@ -247,8 +270,19 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
   await step.run("15-final-metadata-qa", () => executeStep(runId, "FINAL_METADATA_QA", async () => ({ value: true })));
   await step.run("16-complete", () => executeStep(runId, "COMPLETE", async () => {
     const open = await db.select().from(qaFindings).where(and(eq(qaFindings.runId, runId), eq(qaFindings.repairStatus, "OPEN"), inArray(qaFindings.severity, ["ERROR", "BLOCKER"])));
-    if (open.length) throw new Error("OPEN_QA_FINDINGS");
+    // The document is produced either way — it is a work draft, and the QA
+    // report is shown next to it — but the run still records whether the
+    // independent review found anything it could not fix.
+    if (open.length) {
+      await db.update(runs).set({
+        status: "QA_FAILED",
+        errorCode: "OPEN_QA_FINDINGS",
+        userMessage: `RUN-${runId.slice(0, 4).toUpperCase()}`,
+        finishedAt: new Date()
+      }).where(eq(runs.id, runId));
+      return { value: { completed: false, openFindings: open.length } };
+    }
     await db.update(runs).set({ status: "COMPLETED", finishedAt: new Date() }).where(eq(runs.id, runId));
-    return { value: true };
+    return { value: { completed: true, openFindings: 0 } };
   }));
 }
