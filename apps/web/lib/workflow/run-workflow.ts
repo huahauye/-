@@ -185,17 +185,28 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
   // Identification fields are case facts, not model output: they are stamped
   // from the case snapshot so the statement can never carry a hallucinated
   // application number, OA date or OA round.
-  const patentCase = snapshot.patentCase as { applicationNo?: string | null; currentOaDocumentId?: string | null; applicant?: string | null };
+  const patentCase = snapshot.patentCase as {
+    id?: string; applicationNo?: string | null; currentOaDocumentId?: string | null; applicant?: string | null;
+  };
   const oa = snapshot.documents.find((doc) => doc.id === patentCase.currentOaDocumentId);
-  const metadata = (oa?.metadata ?? {}) as { issueDate?: string; serialNo?: string };
+  const metadata = (oa?.metadata ?? {}) as { issueDate?: string; serialNo?: string; applicationNo?: string };
+  const applicationDocument = snapshot.documents.find((doc) => doc.role === "APPLICATION_ORIGINAL");
+  const applicationMetadata = (applicationDocument?.metadata ?? {}) as { applicationNo?: string };
+  // A case created without an application number still has one in its own
+  // documents; prefer the office action, then the application itself.
+  const applicationNumber = patentCase.applicationNo ?? metadata.applicationNo ?? applicationMetadata.applicationNo ?? "";
   const identification = {
-    applicationNumber: patentCase.applicationNo ?? "",
+    applicationNumber,
     applicant: patentCase.applicant ?? "",
     oaRound: oa?.oaRound ? `第${oa.oaRound}次` : "",
     oaDate: metadata.issueDate ?? "",
     oaSerial: metadata.serialNo ?? ""
   };
   const stampIdentification = (value: Statement): Statement => ({ ...value, ...identification });
+  // Keep the case list consistent with the document that was produced.
+  if (!patentCase.applicationNo && applicationNumber && patentCase.id) {
+    await db.update(cases).set({ applicationNo: applicationNumber, updatedAt: new Date() }).where(eq(cases.id, patentCase.id));
+  }
 
   await db.update(runs).set({ status: "DRAFTING" }).where(eq(runs.id, runId));
   let statement = await step.run("09-draft-statement", () => executeStep(runId, "DRAFT_STATEMENT", async () => {

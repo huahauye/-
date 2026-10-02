@@ -124,7 +124,12 @@ def parse_document(path: Path, declared_mime: str, storage_key: str) -> dict:
 def extract_metadata(text: str) -> dict:
     application = re.search(r"(?:申请号|Application\s*No\.?)[\s：:]*([A-Z]{0,2}\d[\d\.]+)", text, re.I)
     serial = re.search(r"(?:通知书编号|发文序号)[\s：:]*([^\s\n]+)", text)
-    issue_date = re.search(r"(?:发文日|日期)[\s：:]*(\d{4}[-年]\d{1,2}[-月]\d{1,2}日?)", text)
+    # Chinese official PDFs often space out dates ("2026 年 06 月 19 日"), so the
+    # separators are allowed to carry whitespace of their own.
+    issue_date = re.search(
+        r"(?:发文日|发文日期|日期)[\s：:]*(\d{4})\s*[-年]\s*(\d{1,2})\s*[-月]\s*(\d{1,2})\s*日?",
+        text,
+    )
     cited = []
     # OCR emits each recognised line separately, so the label and its publication
     # number often end up on different lines; allow the gap to contain newlines
@@ -134,6 +139,6 @@ def extract_metadata(text: str) -> dict:
     return {
         "applicationNo": application.group(1) if application else None,
         "serialNo": serial.group(1) if serial else None,
-        "issueDate": issue_date.group(1) if issue_date else None,
+        "issueDate": f"{issue_date.group(1)}年{int(issue_date.group(2)):02d}月{int(issue_date.group(3)):02d}日" if issue_date else None,
         "citedPriorArts": cited,
     }
