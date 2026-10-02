@@ -1,2 +1,2 @@
 import Link from "next/link"; import { AuthForm } from "@/components/auth-form";
-export default function Page(){return <div className="auth-wrap"><section className="card auth-card"><span className="eyebrow">安全登录</span><h1>继续处理案件</h1><p className="muted">登录后仅可访问属于您的专利案件与生成记录。</p><AuthForm mode="login"/><p className="muted">还没有账户？ <Link href="/register">注册</Link> · <Link href="/recovery">忘记密码</Link></p></section></div>}
+export default function Page(){return <div className="auth-wrap"><section className="card auth-card"><span className="eyebrow">安全登录</span><h1>继续处理案件</h1><p className="muted">登录后仅可访问属于您的专利案件与生成记录。</p><AuthForm mode="login"/><p className="muted">还没有账户？ <Link href="/register">注册</Link> · <Link href="/recovery">修改密码</Link></p></section></div>}

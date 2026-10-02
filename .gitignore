@@ -19,7 +19,3 @@ fixtures/private/**
 !fixtures/private/.gitkeep
 tmp/
 services/document-worker/.cache/
-
-ci-deploy.log
-# Generated at build time by apps/web/scripts/bundle-background-function.mjs
-apps/web/netlify/functions/*.js

@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { AppError, errorResponse, readJson } from "@/lib/errors";
 import { requireOwnedCase } from "@/lib/ownership";
 import { rateLimit } from "@/lib/rate-limit";
-import { documentStorageKey, presignUpload } from "@/lib/storage";
+import { documentStorageKey } from "@/lib/storage";
 
 export async function POST(request: Request, { params }: { params: Promise<{ caseId: string }> }) {
   try {
@@ -19,7 +19,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cas
       await tx.insert(documents).values({ id: documentId, caseId, role: "UNKNOWN", displayName: input.filename });
       await tx.insert(documentVersions).values({ id: versionId, documentId, versionNo: 1, originalFilename: input.filename, mimeType: input.mimeType, sizeBytes: input.size, sha256: input.sha256.toLowerCase(), storageKey: key, uploadStatus: "UPLOADING", parseStatus: "PENDING" });
     });
-    const uploadUrl = await presignUpload(key, input.mimeType, input.size, input.sha256.toLowerCase());
-    return Response.json({ documentId, documentVersionId: versionId, uploadUrl, expiresIn: 900, requiredHeaders: { "content-type": input.mimeType, "x-amz-meta-sha256": input.sha256.toLowerCase() } }, { status: 201 });
+    // The upload target is a same-origin route that streams the file to object
+    // storage, so the bucket needs no CORS rule for this host.
+    const uploadUrl = `/api/cases/${caseId}/uploads/${versionId}/content`;
+    return Response.json({ documentId, documentVersionId: versionId, uploadUrl, expiresIn: 3600, requiredHeaders: { "content-type": input.mimeType } }, { status: 201 });
   } catch (error) { return errorResponse(error); }
 }

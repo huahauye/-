@@ -1,5 +1,6 @@
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { Readable } from "node:stream";
 import { storageConfig } from "./config";
 
 let client: S3Client | undefined;
@@ -28,17 +29,30 @@ export function documentStorageKey(caseId: string, documentId: string, versionId
   return `cases/${caseId}/documents/${documentId}/versions/${versionId}/raw/${safeFilename(filename)}`;
 }
 
-export async function presignUpload(key: string, mimeType: string, size: number, sha256: string): Promise<string> {
+/**
+ * Streams a browser upload into object storage from the server.
+ *
+ * Uploads are proxied rather than sent straight from the browser with a
+ * presigned PUT: that keeps the flow same-origin, so the bucket needs no CORS
+ * rule for the deployment host. (It would also not be possible here — the
+ * credentials in use may read and write objects but do not own the bucket, and
+ * OSS only lets the owner manage CORS.)
+ *
+ * `ContentLength` is passed explicitly because the SDK otherwise switches to
+ * aws-chunked transfer encoding when a stream's length is unknown, and OSS
+ * rejects aws-chunked.
+ */
+export async function putObjectFromWebStream(key: string, body: ReadableStream<Uint8Array>, contentType: string, sha256: string, contentLength: number) {
   const config = storageConfig();
-  return getSignedUrl(
-    s3(),
-    new PutObjectCommand({ Bucket: config.S3_BUCKET, Key: key, ContentType: mimeType, ContentLength: size, Metadata: { sha256 } }),
-    // The presigner normally hoists x-amz-* metadata into the query string, which
-    // Aliyun OSS then reports as an unsigned header ("HeadersNotSigned:
-    // X-AMZ-META-SHA256"). Keeping it in SignedHeaders lets the browser send the
-    // header that uploads/complete later verifies against.
-    { expiresIn: 900, unhoistableHeaders: new Set(["x-amz-meta-sha256"]) }
-  );
+  return s3().send(new PutObjectCommand({
+    Bucket: config.S3_BUCKET,
+    Key: key,
+    Body: Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0]),
+    ContentType: contentType,
+    ContentLength: contentLength,
+    // uploads/complete verifies the stored object against this value.
+    Metadata: { sha256 }
+  }));
 }
 
 export async function presignDownload(key: string, filename?: string): Promise<string> {

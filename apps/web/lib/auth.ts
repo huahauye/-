@@ -1,12 +1,19 @@
-import { getUser } from "@netlify/identity";
-import { eq } from "drizzle-orm";
-import { appUsers } from "@oa/domain/db";
+import { and, eq, gt } from "drizzle-orm";
+import { appUsers, userSessions } from "@oa/domain/db";
 import { db } from "./db";
 import { AppError } from "./errors";
 import { serverConfig } from "./config";
+import { hashSessionToken, readSessionCookie } from "./local-auth";
 
 export interface AppUser { id: string; identityUserId: string; email: string; role: "USER" | "ADMIN"; }
 
+/**
+ * Authentication for a self-hosted deployment.
+ *
+ * Sessions are stored server-side (see `user_sessions`), so signing out revokes
+ * the session immediately and an expired or unknown cookie is simply rejected.
+ * `AUTH_MODE=mock` stays available for local development and tests only.
+ */
 export async function requireUser(): Promise<AppUser> {
   const config = serverConfig();
   if (config.AUTH_MODE === "mock") {
@@ -21,15 +28,16 @@ export async function requireUser(): Promise<AppUser> {
     return user;
   }
 
-  const identityUser = await getUser();
-  if (!identityUser?.id || !identityUser.email) throw new AppError("AUTH_REQUIRED", "请先登录。", 401);
-  const claims = identityUser.appMetadata as { roles?: string[] } | undefined;
-  const role = claims?.roles?.includes("admin") || (await shouldBootstrapAdmin(config)) ? "ADMIN" : "USER";
-  const rows = await db.insert(appUsers).values({ identityUserId: identityUser.id, email: identityUser.email, role })
-    .onConflictDoUpdate({ target: appUsers.identityUserId, set: { email: identityUser.email, updatedAt: new Date() } }).returning();
-  const user = rows[0];
-  if (!user) throw new AppError("AUTH_REQUIRED", "请先登录。", 401);
-  return user;
+  const token = await readSessionCookie();
+  if (!token) throw new AppError("AUTH_REQUIRED", "请先登录。", 401);
+
+  const rows = await db.select({ user: appUsers }).from(userSessions)
+    .innerJoin(appUsers, eq(appUsers.id, userSessions.userId))
+    .where(and(eq(userSessions.tokenHash, hashSessionToken(token)), gt(userSessions.expiresAt, new Date())))
+    .limit(1);
+  const user = rows[0]?.user;
+  if (!user) throw new AppError("AUTH_REQUIRED", "登录已过期，请重新登录。", 401);
+  return { id: user.id, identityUserId: user.identityUserId, email: user.email, role: user.role };
 }
 
 /**
@@ -37,7 +45,7 @@ export async function requireUser(): Promise<AppUser> {
  * ADMIN yet, the first account to sign in is promoted. Existing accounts are
  * never promoted, so turning the flag off later leaves roles untouched.
  */
-async function shouldBootstrapAdmin(config: { BOOTSTRAP_FIRST_ADMIN: "true" | "false" }): Promise<boolean> {
+export async function shouldBootstrapAdmin(config: { BOOTSTRAP_FIRST_ADMIN: "true" | "false" }): Promise<boolean> {
   if (config.BOOTSTRAP_FIRST_ADMIN !== "true") return false;
   const rows = await db.select({ id: appUsers.id }).from(appUsers).where(eq(appUsers.role, "ADMIN")).limit(1);
   return rows.length === 0;

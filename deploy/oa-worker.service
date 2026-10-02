@@ -1,0 +1,17 @@
+[Unit]
+Description=OA Agent document worker (parse / build / render)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/oa-agent/services/document-worker
+EnvironmentFile=/opt/oa-agent/.env
+ExecStart=/opt/oa-agent/services/document-worker/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8080 --log-level info
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/oa-agent/worker.log
+StandardError=append:/var/log/oa-agent/worker.log
+
+[Install]
+WantedBy=multi-user.target

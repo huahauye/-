@@ -1,0 +1,30 @@
+[Unit]
+Description=OA Agent web application (Next.js)
+Documentation=https://github.com/huahauye/-
+After=network-online.target postgresql.service
+Wants=network-online.target
+# A crash loop is worse than a stopped service on a 1.6 GB box: it starves the
+# rest of the machine (including sshd) of processes and memory.
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/oa-agent
+EnvironmentFile=/opt/oa-agent/.env
+Environment=NODE_ENV=production
+# Keep the runtime heap inside the instance's memory budget; the workflow runs in
+# this process, so an unbounded heap can starve the whole machine.
+Environment=NODE_OPTIONS=--max-old-space-size=768
+ExecStart=/usr/bin/pnpm --filter @oa/web exec next start -H 127.0.0.1 -p 3000
+Restart=always
+RestartSec=3
+# The workflow runs inside this process, so it must not be stopped abruptly
+# while a run is in flight; TimeoutStopSec gives the run time to unwind.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+StandardOutput=append:/var/log/oa-agent/web.log
+StandardError=append:/var/log/oa-agent/web.log
+
+[Install]
+WantedBy=multi-user.target

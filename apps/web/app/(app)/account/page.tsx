@@ -1,1 +1,2 @@
-export default function Page(){return <div style={{maxWidth:720}}><span className="eyebrow">账户</span><h1>账户与数据</h1><section className="card"><h2>安全边界</h2><p className="muted">账户密码由 Netlify Identity 管理，本产品数据库不保存密码。案件文件存放在私有对象存储中，仅通过短时签名链接访问。</p><p className="muted">删除案件后将立即禁止访问，并进入后台清理队列。</p></section></div>}
+import Link from "next/link";
+export default function Page(){return <div style={{maxWidth:720}}><span className="eyebrow">账户</span><h1>账户与数据</h1><section className="card"><h2>安全边界</h2><p className="muted">账户密码在本服务数据库中保存为 scrypt 哈希，会话由服务器端记录，退出登录会立即失效。</p><p className="muted">案件文件存放在私有对象存储中，仅通过短时签名链接访问。</p><p className="muted">删除案件后将立即禁止访问，并进入后台清理队列。</p><p className="muted"><Link href="/recovery">修改密码</Link></p></section></div>}

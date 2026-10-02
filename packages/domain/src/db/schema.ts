@@ -32,6 +32,27 @@ export const appUsers = pgTable("app_users", {
   updatedAt: updatedAt()
 });
 
+/**
+ * Self-hosted credentials. The password hash never leaves this table, and
+ * `app_users.identity_user_id` keeps a stable external identifier
+ * (`local:<email>`) so the rest of the schema is unchanged.
+ */
+export const userCredentials = pgTable("user_credentials", {
+  userId: uuid("user_id").primaryKey().references(() => appUsers.id, { onDelete: "cascade" }),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt()
+});
+
+/** Server-side sessions. Only the hash of the cookie value is stored. */
+export const userSessions = pgTable("user_sessions", {
+  tokenHash: text("token_hash").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => appUsers.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: createdAt(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow()
+}, (table) => [index("user_sessions_user_idx").on(table.userId)]);
+
 export const cases = pgTable("cases", {
   id: uuid("id").primaryKey().defaultRandom(),
   ownerUserId: uuid("owner_user_id").notNull().references(() => appUsers.id),

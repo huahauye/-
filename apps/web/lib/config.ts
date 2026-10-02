@@ -2,8 +2,8 @@ import { z } from "zod";
 
 const serverConfigSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  AUTH_MODE: z.enum(["netlify", "mock"]).default("netlify"),
-  WORKFLOW_DRIVER: z.enum(["netlify", "inline"]).default("netlify"),
+  AUTH_MODE: z.enum(["local", "mock"]).default("local"),
+  COOKIE_SECURE: z.enum(["true", "false"]).default("false"),
   DATABASE_URL: z.string().optional(),
   NETLIFY_DB_URL: z.string().optional(),
   MAX_UPLOAD_MB: z.coerce.number().positive().default(200),
