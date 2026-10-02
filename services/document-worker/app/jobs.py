@@ -70,7 +70,7 @@ def parse_job(job: dict) -> dict:
     upload_bytes(full_text.encode("utf-8"), text_key, "text/plain; charset=utf-8")
     upload_bytes(json.dumps(parsed, ensure_ascii=False).encode("utf-8"), manifest_key, "application/json")
     with connection() as conn, conn.cursor() as cur:
-        cur.execute("SELECT dv.original_filename, d.id AS document_id, d.case_id FROM document_versions dv JOIN documents d ON d.id=dv.document_id WHERE dv.id=%s", (version_id,))
+        cur.execute("SELECT dv.original_filename, d.id AS document_id, d.case_id, d.role::text AS current_role, d.user_confirmed FROM document_versions dv JOIN documents d ON d.id=dv.document_id WHERE dv.id=%s", (version_id,))
         row = cur.fetchone()
         if not row: raise RuntimeError("DOCUMENT_VERSION_NOT_FOUND")
         metadata = parsed["metadataCandidates"]
@@ -82,12 +82,33 @@ def parse_job(job: dict) -> dict:
             (uuid4(), version_id, settings().parser_version, parsed["pageCount"], parsed["textQuality"], parsed["isScanned"], text_key, manifest_key, Jsonb(metadata)),
         )
         cur.execute("UPDATE document_versions SET parse_status='PARSED', parse_error_code=NULL WHERE id=%s", (version_id,))
-        cur.execute("UPDATE documents SET role=%s, oa_round=%s, prior_art_label=%s, role_confidence=%s, ai_suggestion=%s, updated_at=now() WHERE id=%s", (role, oa_round, label, confidence, Jsonb({"role": role, "oaRound": oa_round, "priorArtLabel": label, "confidence": confidence}), row["document_id"]))
-        claims = _claims(full_text) if role in {"APPLICATION_ORIGINAL", "CLAIMS_CURRENT", "CLAIMS_REPLACEMENT"} else []
+        # A re-parse (retry, or an operator re-queueing a document) must never
+        # discard a classification the user already confirmed. The heuristic
+        # result is still recorded as ai_suggestion.
+        cur.execute(
+            """UPDATE documents SET
+                 role = CASE WHEN user_confirmed THEN role ELSE %s END,
+                 oa_round = CASE WHEN user_confirmed THEN oa_round ELSE %s END,
+                 prior_art_label = CASE WHEN user_confirmed THEN prior_art_label ELSE %s END,
+                 role_confidence = CASE WHEN user_confirmed THEN role_confidence ELSE %s END,
+                 ai_suggestion = %s,
+                 updated_at = now()
+               WHERE id=%s""",
+            (role, oa_round, label, confidence, Jsonb({"role": role, "oaRound": oa_round, "priorArtLabel": label, "confidence": confidence}), row["document_id"]),
+        )
+        effective_role = row["current_role"] if row["user_confirmed"] else role
+        claims = _claims(full_text) if effective_role in {"APPLICATION_ORIGINAL", "CLAIMS_CURRENT", "CLAIMS_REPLACEMENT"} else []
         if claims:
             cur.execute("SELECT COALESCE(MAX(ordinal),0)+1 AS ordinal FROM claim_versions WHERE case_id=%s", (row["case_id"],))
             ordinal = cur.fetchone()["ordinal"]
-            cur.execute("INSERT INTO claim_versions(id,case_id,source_document_version_id,ordinal,label,claims_json,confidence,is_current,evidence_json) VALUES(%s,%s,%s,%s,%s,%s,%s,false,%s) ON CONFLICT(case_id,ordinal) DO NOTHING", (uuid4(), row["case_id"], version_id, ordinal, row["original_filename"], Jsonb(claims), confidence, Jsonb([])))
+            # Re-parsing the same version must not add another claim version.
+            cur.execute(
+                """INSERT INTO claim_versions(id,case_id,source_document_version_id,ordinal,label,claims_json,confidence,is_current,evidence_json)
+                   SELECT %s,%s,%s,%s,%s,%s,%s,false,%s
+                   WHERE NOT EXISTS (SELECT 1 FROM claim_versions WHERE case_id=%s AND source_document_version_id=%s)
+                   ON CONFLICT(case_id,ordinal) DO NOTHING""",
+                (uuid4(), row["case_id"], version_id, ordinal, row["original_filename"], Jsonb(claims), confidence, Jsonb([]), row["case_id"], version_id),
+            )
         conn.commit()
     return {"manifestKey": manifest_key, "fullTextKey": text_key, "role": role}
 
