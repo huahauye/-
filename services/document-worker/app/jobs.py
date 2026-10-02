@@ -140,11 +140,16 @@ def render_job(job: dict) -> dict:
         pdf_hash, archive_hash = _digest(pdf), _digest(archive)
         pdf_size, archive_size = pdf.stat().st_size, archive.stat().st_size
     with connection() as conn, conn.cursor() as cur:
-        for kind, key, mime, digest, size in [("RENDERED_PDF", payload["pdfKey"], "application/pdf", pdf_hash, pdf_size), ("PAGE_RENDER_ARCHIVE", archive_key, "application/zip", archive_hash, archive_size)]:
+        # The rendered PDF is part of what the user receives; the page archive is
+        # internal QA evidence and stays unpublished.
+        for kind, key, mime, digest, size, downloadable in [
+            ("RENDERED_PDF", payload["pdfKey"], "application/pdf", pdf_hash, pdf_size, True),
+            ("PAGE_RENDER_ARCHIVE", archive_key, "application/zip", archive_hash, archive_size, False),
+        ]:
             cur.execute("""INSERT INTO artifacts(id,run_id,type,storage_key,mime_type,sha256,size_bytes,is_user_downloadable,metadata,attempt)
-                           VALUES(%s,%s,%s,%s,%s,%s,%s,false,%s,1)
-                           ON CONFLICT(run_id,type,attempt) DO UPDATE SET storage_key=excluded.storage_key,sha256=excluded.sha256,size_bytes=excluded.size_bytes,metadata=excluded.metadata""",
-                        (uuid4(), job["run_id"], kind, key, mime, digest, size, Jsonb(result)))
+                           VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,1)
+                           ON CONFLICT(run_id,type,attempt) DO UPDATE SET storage_key=excluded.storage_key,sha256=excluded.sha256,size_bytes=excluded.size_bytes,is_user_downloadable=excluded.is_user_downloadable,metadata=excluded.metadata""",
+                        (uuid4(), job["run_id"], kind, key, mime, digest, size, downloadable, Jsonb(result)))
         for finding in result["findings"]:
             cur.execute("INSERT INTO qa_findings(id,run_id,severity,code,location,message,basis) VALUES(%s,%s,%s,%s,%s,%s,%s)", (uuid4(), job["run_id"], finding["severity"], finding["code"], f"page:{finding['page']}", "文档渲染检查发现异常。", Jsonb(finding)))
         conn.commit()
