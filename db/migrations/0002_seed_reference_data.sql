@@ -10,7 +10,7 @@
 -- to point at an uploaded bundle.
 
 INSERT INTO skills(slug, name)
-VALUES ('cn-patent-oa-response', '中国发明专利 OA 意见陈述书生成')
+VALUES ('cn-patent-oa-response', '涓浗鍙戞槑涓撳埄 OA 鎰忚闄堣堪涔︾敓鎴?)
 ON CONFLICT(slug) DO UPDATE SET name = excluded.name;
 
 -- skill_versions_one_active_uq allows a single active version per Skill.
@@ -35,11 +35,11 @@ ON CONFLICT(skill_id, version) DO UPDATE SET
 
 INSERT INTO model_profiles(name, purpose, provider, model, secret_ref, enabled, config)
 VALUES
-  ('analysis-primary', 'ANALYSIS', 'deepseek', 'deepseek-flash', 'DEEPSEEK', true, '{}'::jsonb),
-  ('drafting-primary', 'DRAFTING', 'deepseek', 'deepseek-flash', 'DEEPSEEK', true, '{}'::jsonb),
-  ('qa-primary', 'QA', 'deepseek', 'deepseek-flash', 'DEEPSEEK', true, '{}'::jsonb),
-  ('classification-primary', 'CLASSIFICATION', 'deepseek', 'deepseek-flash', 'DEEPSEEK', true, '{}'::jsonb),
-  ('vision-qa-primary', 'VISION_QA', 'deepseek', 'deepseek-flash', 'DEEPSEEK', true, '{}'::jsonb)
+  ('analysis-primary', 'ANALYSIS', 'deepseek', 'deepseek-flash', 'DEEPSEEK', true, '{"maxOutputTokens": 8192}'::jsonb),
+  ('drafting-primary', 'DRAFTING', 'deepseek', 'deepseek-flash', 'DEEPSEEK', true, '{"maxOutputTokens": 8192}'::jsonb),
+  ('qa-primary', 'QA', 'deepseek', 'deepseek-flash', 'DEEPSEEK', true, '{"maxOutputTokens": 8192}'::jsonb),
+  ('classification-primary', 'CLASSIFICATION', 'deepseek', 'deepseek-flash', 'DEEPSEEK', true, '{"maxOutputTokens": 8192}'::jsonb),
+  ('vision-qa-primary', 'VISION_QA', 'deepseek', 'deepseek-flash', 'DEEPSEEK', true, '{"maxOutputTokens": 8192}'::jsonb)
 ON CONFLICT(name) DO UPDATE SET
   provider = excluded.provider,
   model = excluded.model,

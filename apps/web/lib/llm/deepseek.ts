@@ -5,6 +5,20 @@ import type { LLMProvider, StructuredRequest, StructuredResult, TextRequest, Tex
 
 const DEFAULT_BASE_URL = "https://api.deepseek.com";
 
+function describeError(error: unknown): string {
+  if (error instanceof z.ZodError) return `SCHEMA_MISMATCH ${describeIssues(error)}`;
+  if (error instanceof Error) return error.message.slice(0, 200);
+  return String(error).slice(0, 200);
+}
+
+/** Turns a Zod error into a short, model-readable list of the offending paths. */
+function describeIssues(error: z.ZodError): string {
+  return error.issues
+    .slice(0, 4)
+    .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+    .join("; ");
+}
+
 export class DeepSeekProvider implements LLMProvider {
   private readonly client: OpenAI;
 
@@ -21,37 +35,44 @@ export class DeepSeekProvider implements LLMProvider {
       JSON.stringify(jsonSchema)
     ].join("\n\n");
 
-    let lastError: unknown;
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: request.input }
+    ];
+
+    let lastReason = "unknown";
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const response = await this.client.chat.completions.create({
           model: request.model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: request.input }
-          ],
+          messages,
           response_format: { type: "json_object" },
           reasoning_effort: "none",
           ...(request.maxOutputTokens === undefined ? {} : { max_tokens: request.maxOutputTokens }),
           ...(request.temperature === undefined ? {} : { temperature: request.temperature })
         });
-        const content = response.choices[0]?.message.content;
+        const choice = response.choices[0];
+        const content = choice?.message.content;
         if (!content) throw new Error("EMPTY_JSON_RESPONSE");
-        const value = request.schema.parse(JSON.parse(content));
+        // A truncated answer cannot parse, and used to be reported as a vague
+        // schema failure; name it so the output budget can be raised instead.
+        if (choice?.finish_reason === "length") throw new Error("OUTPUT_TRUNCATED");
+        const parsed = request.schema.safeParse(JSON.parse(content));
+        if (!parsed.success) throw parsed.error;
         return {
-          value,
+          value: parsed.data,
           ...(response.usage ? { usage: response.usage as unknown as Record<string, unknown> } : {}),
           responseId: response.id
         };
       } catch (error) {
-        lastError = error;
+        lastReason = describeError(error);
+        console.error(`structured_output_rejected model=${request.model} schema=${request.schemaName} attempt=${attempt + 1} reason=${lastReason}`);
+        // Feeding the rejection back beats repeating the same request verbatim,
+        // which tends to reproduce the same mistake.
+        messages.push({ role: "user", content: `上一次输出未被接受：${lastReason}。请修正该问题后重新输出完整 JSON。` });
       }
     }
-    throw new AppError(
-      "MODEL_SCHEMA_INVALID",
-      "DeepSeek 未返回符合业务结构的结果，请稍后重试。",
-      502
-    );
+    throw new AppError("MODEL_SCHEMA_INVALID", `模型未返回符合业务结构的结果：${lastReason}`, 502);
   }
 
   async generateText(request: TextRequest): Promise<TextResult> {
