@@ -61,3 +61,14 @@ export async function loadAppUser(identityUserId: string): Promise<AppUser | nul
   const rows = await db.select().from(appUsers).where(eq(appUsers.identityUserId, identityUserId)).limit(1);
   return rows[0] ?? null;
 }
+
+/** Non-throwing session probe, for chrome that renders differently when signed out. */
+export async function hasSession(): Promise<boolean> {
+  if (serverConfig().AUTH_MODE === "mock") return true;
+  try {
+    await requireUser();
+    return true;
+  } catch {
+    return false;
+  }
+}
