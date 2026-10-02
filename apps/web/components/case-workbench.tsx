@@ -2,6 +2,7 @@
 import { ChangeEvent,useCallback,useEffect,useState } from "react";
 import Link from "next/link";
 import { DownloadCloud,FileText,LoaderCircle,Play,UploadCloud } from "lucide-react";
+import { sha256HexOfBytes } from "@/lib/sha256";
 
 type CaseData={id:string;title:string|null;applicationNo:string|null;status:string;currentOaDocumentId:string|null;currentClaimVersionId:string|null};
 type DocumentRow={document:{id:string;role:string;displayName:string|null;oaRound:number|null;priorArtLabel:string|null;userConfirmed:boolean};version:{id:string;originalFilename:string;parseStatus:string;uploadStatus:string}|null};
@@ -10,7 +11,7 @@ type Claim={id:string;label:string|null;ordinal:number;confidence:string;isCurre
 type Run={id:string;status:string;createdAt:string};
 const roles=["UNKNOWN","APPLICATION_ORIGINAL","OFFICE_ACTION","RESPONSE_STATEMENT","CLAIMS_CURRENT","CLAIMS_REPLACEMENT","CLAIMS_COMPARISON","PRIOR_ART","OTHER"];
 const roleLabels:Record<string,string>={UNKNOWN:"待识别",APPLICATION_ORIGINAL:"本申请",OFFICE_ACTION:"审查意见",RESPONSE_STATEMENT:"历史答复",CLAIMS_CURRENT:"当前权利要求",CLAIMS_REPLACEMENT:"权利要求替换页",CLAIMS_COMPARISON:"权利要求对照",PRIOR_ART:"对比文件",OTHER:"其他"};
-async function sha256(file:File){const value=await crypto.subtle.digest("SHA-256",await file.arrayBuffer());return [...new Uint8Array(value)].map(v=>v.toString(16).padStart(2,"0")).join("")}
+async function sha256(file:File){return sha256HexOfBytes(new Uint8Array(await file.arrayBuffer()))}
 export function CaseWorkbench({caseId}:{caseId:string}){const [patentCase,setCase]=useState<CaseData|null>(null);const[docs,setDocs]=useState<DocumentRow[]>([]);const[readiness,setReadiness]=useState<Readiness|null>(null);const[claims,setClaims]=useState<Claim[]>([]);const[runs,setRuns]=useState<Run[]>([]);const[busy,setBusy]=useState(false);const[message,setMessage]=useState("");
 const load=useCallback(async()=>{const [a,b,c,d,e]=await Promise.all([fetch(`/api/cases/${caseId}`),fetch(`/api/cases/${caseId}/documents`),fetch(`/api/cases/${caseId}/readiness`),fetch(`/api/cases/${caseId}/claim-versions`),fetch(`/api/cases/${caseId}/runs`)]);if(a.status===401){location.href="/login";return}setCase((await a.json()).case);setDocs((await b.json()).documents??[]);setReadiness(await c.json());setClaims((await d.json()).claimVersions??[]);setRuns((await e.json()).runs??[])},[caseId]);
 useEffect(()=>{load();const timer=setInterval(load,4000);return()=>clearInterval(timer)},[load]);
