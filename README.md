@@ -6,6 +6,9 @@
 
 > 本系统生成的是专业工作稿，不自动提交 CNIPA，不承诺授权或“可直接提交”。
 
+> 完整的产品技术设计文档（技术栈、架构、模块底层逻辑、数据库表结构、部署运维）见
+> [`docs/TECH_DESIGN.md`](docs/TECH_DESIGN.md)；运维与验证脚本见 [`tools/README.md`](tools/README.md)。
+
 ## 架构
 
 整套系统自托管在阿里云 ECS `39.108.58.140` 上，不再依赖 Netlify 提供

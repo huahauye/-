@@ -15,9 +15,9 @@
     "lint": "pnpm -r lint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:setup:netlify": "node scripts/setup-netlify-db.mjs",
-    "db:seed:netlify": "node scripts/seed-netlify.mjs",
-    "db:seed:dev": "node scripts/seed-dev.mjs",
+    "db:apply": "node scripts/apply-migrations.mjs",
+    "db:seed": "node scripts/seed-dev.mjs",
+    "db:reset-password": "node scripts/reset-password.mjs",
     "check": "pnpm typecheck && pnpm test && pnpm build"
   },
   "devDependencies": {
