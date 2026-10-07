@@ -19,3 +19,8 @@ fixtures/private/**
 !fixtures/private/.gitkeep
 tmp/
 services/document-worker/.cache/
+# Ops tooling credentials and outputs (see tools/README.md)
+tools/ecs.env
+tools/worker.env
+tools/out/*
+!tools/out/.gitkeep
