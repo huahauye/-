@@ -7,7 +7,10 @@
 > 本系统生成的是专业工作稿，不自动提交 CNIPA，不承诺授权或“可直接提交”。
 
 > 完整的产品技术设计文档（技术栈、架构、模块底层逻辑、数据库表结构、部署运维）见
-> [`docs/TECH_DESIGN.md`](docs/TECH_DESIGN.md)；运维与验证脚本见 [`tools/README.md`](tools/README.md)。
+> [`docs/TECH_DESIGN.md`](docs/TECH_DESIGN.md)；另有两份配套文档：
+> [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)（技术架构）与
+> [`docs/DATABASE_DESIGN.md`](docs/DATABASE_DESIGN.md)（数据库设计）；
+> 运维与验证脚本见 [`tools/README.md`](tools/README.md)。
 
 ## 架构
 
