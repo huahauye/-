@@ -16,11 +16,11 @@ function defaultFixture(name: string, input: string, metadata?: Record<string, s
   const envelope = { schemaVersion: "1.0", generatedAt: new Date().toISOString(), runId };
   const start = input.indexOf("<CASE_MATERIALS_UNTRUSTED_DATA>");
   const end = input.lastIndexOf("</CASE_MATERIALS_UNTRUSTED_DATA>");
-  let data: any = {};
-  try { data = JSON.parse(input.slice(start + "<CASE_MATERIALS_UNTRUSTED_DATA>".length, end)); } catch { /* fixture remains generic */ }
-  const snapshot = data.snapshot ?? data;
-  const oa = snapshot?.documents?.find((document: any) => document.role === "OFFICE_ACTION");
-  const caseData = snapshot?.patentCase ?? {};
+  let data: Record<string, unknown> = {};
+  try { data = JSON.parse(input.slice(start + "<CASE_MATERIALS_UNTRUSTED_DATA>".length, end)) as Record<string, unknown>; } catch { /* fixture remains generic */ }
+  const snapshot = (data.snapshot ?? data) as Record<string, unknown>;
+  const oa = (snapshot.documents as Array<Record<string, unknown>> | undefined)?.find((document) => document.role === "OFFICE_ACTION");
+  const caseData = (snapshot.patentCase ?? {}) as Record<string, unknown>;
   const issue = { issueId: "OA-C1-22.3-01", claimRefs: ["1"], legalBasis: "专利法第二十二条第三款", issueType: "INVENTIVE_STEP", examinerPosition: "开发测试审查命题", priorArts: ["D1"], reasoning: "开发测试推理", previousArgumentResponse: null, evidence: [] };
   if (name === "oa_issue_list") return { ...envelope, issues: [issue] };
   if (name === "evidence_matrix") return { ...envelope, issues: [{ issueId: issue.issueId, claim: "1", features: [{ featureId: "C1-F01", text: "开发测试特征", applicationEvidence: [], examinerEvidence: [], priorArtEvidence: { D1: { status: "UNVERIFIED", evidence: [] } } }] }] };
@@ -31,8 +31,8 @@ function defaultFixture(name: string, input: string, metadata?: Record<string, s
   ], selectedId: "B", selectionRationale: "开发环境固定策略，用于验证端到端链路。" };
   if (name === "amendment_plan") return { ...envelope, claims: [{ claimNo: "1", action: "KEEP", originalText: "开发测试权利要求", proposedText: "开发测试权利要求", changes: [] }], renumbering: [], consistencyUpdates: [] };
   if (name === "statement" || name === "statement_repaired") {
-    const metadata = oa?.metadata ?? {};
-    return { ...envelope, title: "意见陈述书", applicationNumber: caseData.applicationNo ?? "", inventionTitle: caseData.title ?? "", applicant: caseData.applicant ?? "", oaRound: oa?.oaRound ? `第${oa.oaRound}次` : "", oaDate: metadata.issueDate ?? "", oaSerial: metadata.serialNo ?? "", lead: [{ text: "申请人现就本次审查意见陈述如下。", kind: "body", evidenceIds: [], issueIds: [] }], sections: [{ heading: "一、关于审查意见的答复", paragraphs: [{ text: "本段为开发环境生成的合成工作稿，仅用于验证系统链路。", kind: "body", evidenceIds: [], issueIds: [issue.issueId] }] }], closing: [{ text: "恳请审查员继续审查。", kind: "body", evidenceIds: [], issueIds: [] }], reviewNotes: [] };
+    const oaMetadata = (oa?.metadata ?? {}) as Record<string, unknown>;
+    return { ...envelope, title: "意见陈述书", applicationNumber: caseData.applicationNo ?? "", inventionTitle: caseData.title ?? "", applicant: caseData.applicant ?? "", oaRound: oa?.oaRound ? `第${oa.oaRound}次` : "", oaDate: oaMetadata.issueDate ?? "", oaSerial: oaMetadata.serialNo ?? "", lead: [{ text: "申请人现就本次审查意见陈述如下。", kind: "body", evidenceIds: [], issueIds: [] }], sections: [{ heading: "一、关于审查意见的答复", paragraphs: [{ text: "本段为开发环境生成的合成工作稿，仅用于验证系统链路。", kind: "body", evidenceIds: [], issueIds: [issue.issueId] }] }], closing: [{ text: "恳请审查员继续审查。", kind: "body", evidenceIds: [], issueIds: [] }], reviewNotes: [] };
   }
   if (name === "qa_report" || name === "qa_report_repaired") return { ...envelope, findings: [], issueCoverage: 1 };
   return undefined;

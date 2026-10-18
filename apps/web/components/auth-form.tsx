@@ -49,14 +49,38 @@ export function AuthForm({ mode }: { mode: "login" | "register" | "password" }) 
     }
   }
 
-  return <form className="form" onSubmit={submit}>
-    {mode !== "password" && <div className="field"><label>邮箱</label><input className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>}
-    <div className="field">
-      <label>{mode === "password" ? "当前密码" : "密码"}</label>
-      <input className="input" type="password" minLength={8} autoComplete={mode === "login" ? "current-password" : "new-password"} required value={password} onChange={(e) => setPassword(e.target.value)} />
-    </div>
-    {mode === "password" && <div className="field"><label>新密码</label><input className="input" type="password" minLength={8} autoComplete="new-password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /></div>}
-    {message && <div className={message.includes("已") ? "notice" : "notice error"}>{message}</div>}
-    <button className="button" disabled={busy}>{busy ? "处理中…" : mode === "login" ? "登录" : mode === "register" ? "创建账户" : "更新密码"}</button>
-  </form>;
+  return (
+    <form className="form" onSubmit={submit}>
+      {mode !== "password" && (
+        <div className="field">
+          <label htmlFor="auth-email">邮箱</label>
+          <input className="input" id="auth-email" type="email" autoComplete="email" placeholder="you@example.com" required value={email} onChange={(event) => setEmail(event.target.value)} />
+        </div>
+      )}
+      <div className="field">
+        <label htmlFor="auth-password">{mode === "password" ? "当前密码" : "密码"}</label>
+        <input
+          className="input"
+          id="auth-password"
+          type="password"
+          minLength={8}
+          autoComplete={mode === "login" ? "current-password" : "new-password"}
+          placeholder="至少 8 位"
+          required
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+      </div>
+      {mode === "password" && (
+        <div className="field">
+          <label htmlFor="auth-new-password">新密码</label>
+          <input className="input" id="auth-new-password" type="password" minLength={8} autoComplete="new-password" placeholder="至少 8 位" required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} />
+        </div>
+      )}
+      {message && <div className={message.includes("已") ? "notice ok" : "notice error"}>{message}</div>}
+      <button className="button block" disabled={busy}>
+        {busy ? "处理中…" : mode === "login" ? "登录" : mode === "register" ? "创建账户" : "更新密码"}
+      </button>
+    </form>
+  );
 }

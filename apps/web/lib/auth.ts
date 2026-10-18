@@ -72,3 +72,15 @@ export async function hasSession(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * The signed-in user for layout chrome (avatar, menu, admin entry).
+ * Same lookup as `requireUser`, but absence is a normal state rather than 401.
+ */
+export async function currentUser(): Promise<AppUser | null> {
+  try {
+    return await requireUser();
+  } catch {
+    return null;
+  }
+}
