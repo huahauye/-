@@ -11,10 +11,10 @@
 | Skill 原始标识 | `oa-response-cn` |
 | Skill 原始版本 | **v0.2**（2026-10-14） |
 | 上传归档 SHA-256 | `92f38f376326872f5ce88cdb1f31ad9bb6fd4e970389fe97c037de5f5d12f214` |
-| 仓库内置副本 | `skills/oa-response-cn/`（22 个文件 + `runtime-manifest.json`） |
+| 仓库内置副本 | `skills/oa-response-cn/`（21 个文件 + `runtime-manifest.json`，已脱敏） |
 | 历史版本 | `1.0.0` 记录保留，不删除、不改写 |
 
-`skills/oa-response-cn/runtime-manifest.json` 同时记录运行时身份、原始身份、每个文件的 sha256 与归档指纹，保证来源可追溯。
+`skills/oa-response-cn/runtime-manifest.json` 同时记录运行时身份、原始身份、每个文件的 sha256 与归档指纹，保证来源可追溯。真实客户案卷复盘不随仓库分发：`.gitignore` 排除 `skills/private/` 与 `skills/*/references/case_*.md`，需要时放在这些位置本地使用。
 
 ## 2. V1 为什么没有真正用上 Skill
 
