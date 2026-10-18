@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "1.0",
+  "runtimeSlug": "cn-patent-oa-response",
+  "runtimeVersion": "2.0.0",
+  "originalName": "oa-response-cn",
+  "originalVersion": "v0.2",
+  "entry": "SKILL.md",
+  "sourceArchive": {
+    "filename": "skill.zip",
+    "sha256": "92f38f376326872f5ce88cdb1f31ad9bb6fd4e970389fe97c037de5f5d12f214"
+  },
+  "note": "这份仓库副本经过脱敏：真实客户案卷复盘已移出仓库（私有文件按 .gitignore 的 references/case_*.md 规则排除），archive 指纹记录的是导入时的原始压缩包。",
+  "files": [
+    {
+      "path": "assets/意见陈述书正文_空白模板.docx",
+      "sha256": "3209f0a578dad9a80b3ea23862f37dd1944df14b3fc64fcedd2174707860db4b",
+      "bytes": 38208
+    },
+    {
+      "path": "assets/case_metadata.example.json",
+      "sha256": "27259b8681fe1e5a04fdf17f58de2ff04c3360a7b6cdfb6629688e1e356d206a",
+      "bytes": 340
+    },
+    {
+      "path": "assets/opinion_body_outline.md",
+      "sha256": "34c4e38ab28964e46c2b1f32e6b5c43a04d3ebb3a1408313fc19635a4d6a3a06",
+      "bytes": 2021
+    },
+    {
+      "path": "assets/prompts_使用示例.md",
+      "sha256": "bf6ae60961cc196cf89850120aaf6aa612bcad76d3f653fa952ee3161ae751fa",
+      "bytes": 1506
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "971c741988a57d3a425c815bc886cd0bda9a3e6d260b17c4d5cee1e005053a51",
+      "bytes": 830
+    },
+    {
+      "path": "manifest.txt",
+      "sha256": "2c405054493ae83c45b5ac8d68a663294d29ea84f9bc74cdca19731a78d46660",
+      "bytes": 583
+    },
+    {
+      "path": "README_零基础使用.md",
+      "sha256": "9d19c7ccfc686bc53240b4f12be855b5ab8c63511bb49a0dec1d7eb25242c88c",
+      "bytes": 2989
+    },
+    {
+      "path": "references/claim_amendment.md",
+      "sha256": "c3f0dff568e158064a403ac73026ad9f5d973261a0c701509b987bc3bb18d1c1",
+      "bytes": 3219
+    },
+    {
+      "path": "references/creativity_framework.md",
+      "sha256": "3ba3d807c8bbead297d26b43c9c65f4f44652ae7d454e3a6e8cbe55a8353a1ce",
+      "bytes": 4035
+    },
+    {
+      "path": "references/evidence_protocol.md",
+      "sha256": "60e01cda5892f8d4b5c2a38cab6c0d47f9f6cc79a50a002e0d1a5284f601b965",
+      "bytes": 2366
+    },
+    {
+      "path": "references/examiner_counterattack.md",
+      "sha256": "ec35c583950026b72f2de499c7d0eb51d4aa9894e7a7b36220be6271a49853b3",
+      "bytes": 1491
+    },
+    {
+      "path": "references/intake_workflow.md",
+      "sha256": "c4698042151665d1b3bafc775938639bb65b2f389ac52d9a8e9b4ef51513a083",
+      "bytes": 2804
+    },
+    {
+      "path": "references/legal_sources.md",
+      "sha256": "4c9c4624b207173b7e8be2b5cf32cf988205969d8dae744749cb72a44673bcc9",
+      "bytes": 2147
+    },
+    {
+      "path": "references/mairui_decision_tree.md",
+      "sha256": "cad07675326b5e5f3bc5f8b71f205af5c06a5cf131f75152409a52c4ddb68f64",
+      "bytes": 12964
+    },
+    {
+      "path": "references/oa_writing_style.md",
+      "sha256": "fe6ca9148877c0a32d4a4fbd199b3fb80cef2488c6ffe02425853211b208b08f",
+      "bytes": 20379
+    },
+    {
+      "path": "scripts/qa_docx.py",
+      "sha256": "c3cb9dd45f60c4e3f76551bd3c60822f6df79dad456db7f2adc9333ec74a3832",
+      "bytes": 4563
+    },
+    {
+      "path": "scripts/validate_skill.py",
+      "sha256": "c8195e4b22be75e2ce1a768bbeed746eeecfb4beb6eb963fa8c8f5678af40804",
+      "bytes": 1405
+    },
+    {
+      "path": "SKILL.md",
+      "sha256": "9bc78547d616a2f6434916857e5665d4432dcb62b7aeb20e0802604be6268625",
+      "bytes": 7046
+    },
+    {
+      "path": "tests/evaluation_rubric.md",
+      "sha256": "53aa43490c81a1255a9cd22090dace3980d1904ed86182008372cb2e6b13c04c",
+      "bytes": 1692
+    },
+    {
+      "path": "tests/next_case_feedback.md",
+      "sha256": "003365ce4780135d7610e1ff93777194a5f876f2e38c50fbac1e2e5ed5a4a0f1",
+      "bytes": 725
+    },
+    {
+      "path": "tests/smoke_tests.md",
+      "sha256": "217321601e75fc32c564cf9bf2037e9f340aff15683b11179fda825bb7efd107",
+      "bytes": 2336
+    }
+  ],
+  "privateFiles": [
+    "references/case_<内部案卷号>.md"
+  ]
+}

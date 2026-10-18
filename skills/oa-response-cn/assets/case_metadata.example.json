@@ -1,0 +1,9 @@
+{
+  "application_number": "请填入当前新案的真实申请号",
+  "title": "请填入发明名称",
+  "applicant": "请填入申请人全称",
+  "oa_round": "请填入本次通知书轮次",
+  "oa_date": "请填入本次通知书发文日期",
+  "claims_total": null,
+  "case_reference": "请填入内部案件编号（如适用）"
+}

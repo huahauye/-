@@ -6,12 +6,20 @@ export const schemaEnvelope = z.object({
   runId: z.string().uuid()
 });
 
+/**
+ * Evidence discipline tags from the Skill's `evidence_protocol.md`.
+ * Optional so historical artifacts and stored JSON stay valid.
+ */
+export const sourceTagSchema = z.enum(["原文已核", "OA主张", "推断", "未检索到", "待核", "用户确认"]);
+
 export const evidenceRefSchema = z.object({
   documentVersionId: z.string().uuid(),
   page: z.number().int().positive().optional(),
   paragraph: z.string().max(100).optional(),
   claim: z.string().max(50).optional(),
-  quote: z.string().max(500).optional()
+  quote: z.string().max(500).optional(),
+  /** `原文已核` only when the passage was actually read; `OA主张` when it comes from the notification. */
+  sourceTag: sourceTagSchema.optional()
 });
 export type EvidenceRef = z.infer<typeof evidenceRefSchema>;
 
@@ -53,6 +61,13 @@ export const oaIssueSchema = z.object({
   priorArts: z.array(z.string().regex(/^D\d+$/)),
   reasoning: z.string(),
   previousArgumentResponse: z.string().nullable(),
+  /**
+   * How well grounded the examiner's position is (Skill `evidence_protocol.md`):
+   * an OA statement is not a verified disclosure of the reference.
+   */
+  factStatus: z.enum(["原文已核", "OA主张", "推断", "未检索到", "待核"]).optional(),
+  /** Page / paragraph of the notification this issue is quoted from. */
+  oaLocation: z.string().max(200).optional(),
   evidence: z.array(evidenceRefSchema)
 });
 export const issueListSchema = schemaEnvelope.extend({ issues: z.array(oaIssueSchema) });
@@ -73,14 +88,21 @@ export const evidenceMatrixSchema = schemaEnvelope.extend({
 });
 
 export const strategySchema = schemaEnvelope.extend({
+  /**
+   * The Skill explicitly forbids padding this list: "不能为凑三个方案而编造修改
+   * 特征". A minimum of one lets the model report only the viable paths instead
+   * of inventing a third; the three types remain available.
+   */
   candidates: z.array(z.object({
     id: z.string(),
     type: z.enum(["ARGUE_WITHOUT_AMENDMENT", "AMEND_AND_ARGUE", "FURTHER_NARROW"]),
     summary: z.string(),
     scopeLoss: z.enum(["NONE", "LOW", "MEDIUM", "HIGH"]),
     supportRisk: z.enum(["LOW", "MEDIUM", "HIGH"]),
-    evidenceStrength: z.enum(["LOW", "MEDIUM", "HIGH"])
-  })).min(3),
+    evidenceStrength: z.enum(["LOW", "MEDIUM", "HIGH"]),
+    /** Strongest foreseeable examiner comeback against this option (Skill `examiner_counterattack.md`). */
+    counterattack: z.string().optional()
+  })).min(1),
   selectedId: z.string(),
   selectionRationale: z.string().max(2000)
 });

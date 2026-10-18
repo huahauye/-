@@ -17,6 +17,11 @@ __pycache__/
 .venv/
 fixtures/private/**
 !fixtures/private/.gitkeep
+# Real client case notes must never enter the repository: a skill may reference
+# them, but they stay on the operator's machine.
+skills/private/
+skills/*/references/case_*.md
+!skills/*/references/case_*.example.md
 tmp/
 services/document-worker/.cache/
 # Ops tooling credentials and outputs (see tools/README.md)

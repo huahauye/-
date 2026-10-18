@@ -9,6 +9,18 @@ const serverConfigSchema = z.object({
   MAX_UPLOAD_MB: z.coerce.number().positive().default(200),
   ALLOW_GENERATE_WITH_MISSING_PRIOR_ART: z.enum(["true", "false"]).default("false"),
   ACTIVE_SKILL_SLUG: z.string().default("cn-patent-oa-response"),
+  /**
+   * Where the workflow reads the Skill's professional rules from.
+   * - `repo` (default): the copy vendored under `skills/` — used for development
+   *   and tests, and the mode that makes the current skill version effective.
+   * - `db`: the bundle imported through /admin (`skill_assets.is_runtime_text`).
+   * - `off`: no injection at all, reproducing the V1 prompts.
+   */
+  SKILL_CONTEXT_MODE: z.enum(["repo", "db", "off"]).default("repo"),
+  /** Absolute or cwd-relative directory holding SKILL.md; empty means auto-detect. */
+  SKILL_REPO_DIR: z.string().optional(),
+  /** Character budget for the skill rules injected into a single model call. */
+  SKILL_CONTEXT_CHAR_LIMIT: z.coerce.number().int().positive().default(40000),
   BOOTSTRAP_FIRST_ADMIN: z.enum(["true", "false"]).default("false"),
   PARSER_VERSION: z.string().default("1.0.0"),
   BUILDER_VERSION: z.string().default("1.0.0"),

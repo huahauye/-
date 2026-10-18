@@ -12,6 +12,8 @@ import { db } from "../db";
 import { serverConfig } from "../config";
 import { createProvider } from "../llm";
 import { getObjectText, putObject } from "../storage";
+import { resolveSkillContent } from "../skill/source";
+import { buildSkillContext, type SkillInjection } from "../skill/context";
 import { deterministicStatementQa } from "./metadata-qa";
 
 const MATERIAL_BOUNDARY = "\n\n<CASE_MATERIALS_UNTRUSTED_DATA>\n";
@@ -106,16 +108,37 @@ async function profile(runId: string, purpose: string) {
   return rows[0];
 }
 
-async function structured<T>(runId: string, stepKey: string, purpose: string, schemaName: string, schema: Parameters<ReturnType<typeof createProvider>["generateStructured"]>[0]["schema"], instructions: string, input: unknown): Promise<T> {
+/**
+ * One structured model call.
+ *
+ * `skill` is the professional rule block resolved for this step. When present it
+ * becomes part of the system prompt and its hash is what `model_calls`
+ * records — so the database shows which rules a call actually used, instead of
+ * only the bundle hash of the skill version.
+ */
+async function structured<T>(
+  runId: string,
+  stepKey: string,
+  purpose: string,
+  schemaName: string,
+  schema: Parameters<ReturnType<typeof createProvider>["generateStructured"]>[0]["schema"],
+  instructions: string,
+  input: unknown,
+  skill: SkillInjection | null = null
+): Promise<T> {
   const selected = await profile(runId, purpose);
   const provider = createProvider(selected.provider, selected.secretRef);
   const inputText = JSON.stringify(input);
   const skillRows = await db.select({ sha: skillVersions.bundleSha256 }).from(runs).innerJoin(skillVersions, eq(skillVersions.id, runs.skillVersionId)).where(eq(runs.id, runId)).limit(1);
   const startedAt = new Date();
   const config = selected.config as { maxOutputTokens?: number; temperature?: number };
+  const composed = skill?.text ? `${skill.text}\n\n---\n\n${instructions}` : instructions;
+  if (skill) {
+    console.info(`skill_injected run=${runId} step=${stepKey} skill=${skill.identity} origin=${skill.origin} chars=${skill.text.length} files=${skill.files.map((file) => file.path).join(",")} hash=${skill.hash}`);
+  }
   const result = await provider.generateStructured({
     model: selected.model,
-    instructions: `${INJECTION_GUARD}\n\n${instructions}`,
+    instructions: `${INJECTION_GUARD}\n\n${composed}`,
     input: MATERIAL_BOUNDARY + inputText + SYSTEM_BOUNDARY,
     schemaName,
     schema: schema as never,
@@ -125,7 +148,11 @@ async function structured<T>(runId: string, stepKey: string, purpose: string, sc
   });
   await db.insert(modelCalls).values({
     runId, stepKey, purpose, provider: selected.provider, model: selected.model, requestSchemaVersion: "1.0",
-    promptTemplateHash: hash(instructions), skillBundleHash: skillRows[0]?.sha ?? "unknown", inputHash: hash(inputText),
+    promptTemplateHash: hash(composed),
+    // The injected rule block takes precedence: it is the evidence that this call
+    // was driven by the skill's rules, not merely by its version.
+    skillBundleHash: skill ? skill.hash : skillRows[0]?.sha ?? "unknown",
+    inputHash: hash(inputText),
     startedAt, finishedAt: new Date(), usage: result.usage ?? null
   });
   return result.value as T;
@@ -145,6 +172,17 @@ async function waitForWorker(step: StepApi, runId: string, jobId: string, prefix
 
 export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
   await db.update(runs).set({ status: "ANALYZING", startedAt: new Date() }).where(eq(runs.id, runId));
+
+  // Resolve the professional rules once per run: they are frozen with the run's
+  // skill version and only depend on it. A misconfigured skill source must fail
+  // loudly here rather than silently degrade to the bare V1 prompts.
+  const config = serverConfig();
+  const runRow = (await db.select({ skillVersionId: runs.skillVersionId }).from(runs).where(eq(runs.id, runId)).limit(1))[0];
+  if (!runRow) throw new Error("RUN_NOT_FOUND");
+  const skillContent = await resolveSkillContent({ skillVersionId: runRow.skillVersionId, slug: config.ACTIVE_SKILL_SLUG });
+  const skillFor = (stepKey: string): SkillInjection | null =>
+    buildSkillContext(skillContent, stepKey, config.SKILL_CONTEXT_CHAR_LIMIT);
+
   const snapshot = await step.run("01-snapshot-case", () => executeStep(runId, "SNAPSHOT_CASE", async () => {
     const value = await buildSnapshot(runId);
     const artifact = await writeArtifact(runId, "CASE_SNAPSHOT", "case-snapshot.json", value);
@@ -156,28 +194,36 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
 
   const issues = await step.run("05-extract-oa-issues", () => executeStep(runId, "EXTRACT_OA_ISSUES", async () => {
     const value = await structured<typeof issueListSchema._output>(runId, "EXTRACT_OA_ISSUES", "ANALYSIS", "oa_issue_list", issueListSchema,
-      "将当前 OA 按权利要求、法条、审查员命题、证据及必须回应事项完整拆解。后续 OA 必须识别对上轮意见的回应。", snapshot);
+      "按本次审查意见通知书的原文逐条重建审查员的攻击逻辑：每条给出所涉权项、法条（含款/项）、审查员原话或如实摘录、其据以认定的对比文件组合、以及必须逐一回应的每一事项；OA2 及以后必须同时说明本次与上轮的争议演变（本次对上轮答复的针对性评价）。"
+      + "\n纪律：审查员观点与对比文件原文公开是两件事——仅见于通知书概述的内容标注为「OA主张」，只有真正读到引证原文的才标「原文已核」，无法读取的标「待核」；不得虚构通知书页码、段落，也不得虚构审查员未表达的立场。",
+      snapshot, skillFor("EXTRACT_OA_ISSUES"));
     const artifact = await writeArtifact(runId, "ISSUE_LIST", "issue-list.json", value);
     return { value, artifactId: artifact.id };
   }));
 
   const matrix = await step.run("06-build-evidence-matrix", () => executeStep(runId, "BUILD_EVIDENCE_MATRIX", async () => {
     const value = await structured<typeof evidenceMatrixSchema._output>(runId, "BUILD_EVIDENCE_MATRIX", "ANALYSIS", "evidence_matrix", evidenceMatrixSchema,
-      "拆分独立权利要求的语义完整特征，分别核对本申请、审查员认定和每份对比文件。关键结论必须附 EvidenceRef。", { snapshot, issues });
+      "以当前有效权利要求的原文为基准，按语义完整的最小技术特征切分独立权利要求，逐特征建立对比：本申请原文依据、审查员认定、D1、D2–Dn 各自的公开状态；公开状态严格区分「明示公开／必然隐含／审查员主张但待核实／未见公开／无法读取」，并给出可核验的 EvidenceRef（文件、页码或段落、短引文，按 sourceTag 标注来源层级）。"
+      + "\n纪律：「未检索到」不得写成绝对「未公开」；没有读到的段落不得编造段号；每个区别特征要说明其输入/输出、时序、控制、数据关系与后续用途，而不是只罗列名词。",
+      { snapshot, issues }, skillFor("BUILD_EVIDENCE_MATRIX"));
     const artifact = await writeArtifact(runId, "EVIDENCE_MATRIX", "evidence-matrix.json", value);
     return { value, artifactId: artifact.id };
   }));
 
   const strategy = await step.run("07-generate-strategies", () => executeStep(runId, "GENERATE_STRATEGIES", async () => {
     const value = await structured<typeof strategySchema._output>(runId, "GENERATE_STRATEGIES", "ANALYSIS", "strategy_decision", strategySchema,
-      "同时评估不修改争辩、加入关键特征后争辩、进一步限缩三条路径。选择证据完整、修改依据稳且范围损失较小的方案。", { issues, matrix });
+      "按迈瑞决策树的顺序评估：先核 P0（日期与抵触申请资格），再定 P1（真实区别技术特征），再校 P2（客观技术问题是否准确，且不得把解决手段写进问题）；P3 改进动机、P4 其他文献的技术启示、P5 组合障碍、P6 常规技术手段作为可并行论点，不必全部使用。"
+      + "\n候选策略只列能够成立的方案（不修改争辩／较小限缩／有依据的增强限缩），每个方案写明所依据的原文位置、带来的区别与技术作用、保护范围代价、创造性强弱，以及审查员最可能的二次攻击（counterattack）。禁止为凑满三种而编造修改特征。",
+      { issues, matrix }, skillFor("GENERATE_STRATEGIES"));
     const artifact = await writeArtifact(runId, "STRATEGY_DECISION", "strategy.json", value);
     return { value, artifactId: artifact.id };
   }));
 
   const amendment = await step.run("08-build-amendment-plan", () => executeStep(runId, "BUILD_AMENDMENT_PLAN", async () => {
     const value = await structured<typeof amendmentPlanSchema._output>(runId, "BUILD_AMENDMENT_PLAN", "ANALYSIS", "amendment_plan", amendmentPlanSchema,
-      "形成权利要求修改计划。新增特征必须有原申请直接且无疑义的依据；默认仅上提一个高价值从属权利要求，并同步对应独立权利要求。", { snapshot, matrix, strategy });
+      "形成权利要求修改计划：先判定是否需要修改（争辩优先的可能性、既有范围过宽、从权或说明书中存在具有技术作用的高价值限定、前次纯争辩未解决本次指出的缺陷），再逐项给出修改依据。"
+      + "\n纪律：新增特征必须在原始说明书、原权利要求或附图中存在直接且无歧义的记载，并说明多个限定组合在同一实施例或上下文中确实有依据；逐项列出「修改前原文／修改后文字／原始依据位置／组合支持／保护范围变化」；必须区分原始权项号与当前有效权项号并做版本映射（旧权号与现权号不可凭数字直接等同）；不得为了让技术链看起来合理而改动原文的数值、上下限、术语或步骤顺序（如把「第1位图」写成「第m-1位图」）。",
+      { snapshot, matrix, strategy }, skillFor("BUILD_AMENDMENT_PLAN"));
     const artifact = await writeArtifact(runId, "AMENDMENT_PLAN", "amendment-plan.json", value);
     return { value, artifactId: artifact.id };
   }));
@@ -211,7 +257,9 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
   await db.update(runs).set({ status: "DRAFTING" }).where(eq(runs.id, runId));
   let statement = await step.run("09-draft-statement", () => executeStep(runId, "DRAFT_STATEMENT", async () => {
     const drafted = await structured<Statement>(runId, "DRAFT_STATEMENT", "DRAFTING", "statement", statementSchema,
-      "起草正式中文《意见陈述书》工作稿。依次写案件识别、修改说明、逐项答复、独立权利要求的创造性/新颖性、其他权利要求和结论；只有在确实修改了权利要求时才写“修改依据”一节，未作修改时不得保留该章节，改为在“修改说明”中说明未作修改及其理由。论述技术效果时只能引用申请文件（说明书或权利要求书）中已记载的效果，说明书未记载的效果不得作为主张，改为基于权利要求技术特征的技术分析。指代对比文件时统一使用案件材料已定义的 D 标签。正文不得出现内部检查信息，reviewNotes 必须为空。每个段落用 issueIds 标记所答复的问题。", { snapshot, issues, matrix, strategy, amendment });
+      "按正式《意见陈述书》的规范起草中文工作稿，章节按本次情况动态裁剪，顺序为：案件识别 → 修改说明（本次未修改权利要求时不得保留该章，也不得编造）→ 修改后权利要求 1 的逐字引用（确有修改时）→ 修改依据（仅在确有修改且依据已核实时保留）→ 按「对于上述区别技术特征 1）」逐项答复 → 独立权利要求的创造性（先证据、后判断，「突出的实质性特点」与「显著的进步」分别给出论据）→ 其他权利要求（先核对真实引用关系，简短）→ 结论。"
+      + "\n纪律：引用审查员观点时忠实转述其原话要点，不夸大也不美化；区别技术特征必须与修改后权利要求的文字逐字一致；技术效果只能来自申请文件明确记载，说明书未记载的效果不得主张，只能据权利要求技术特征作技术分析；指代对比文件统一使用案件材料已定义的 D 标签；证据标签、内部核验过程与风险提示一律不得进入递交正文；正文不得出现内部检查信息，reviewNotes 必须为空；每个段落用 issueIds 标记所答复的问题。",
+      { snapshot, issues, matrix, strategy, amendment }, skillFor("DRAFT_STATEMENT"));
     const value = stampIdentification(drafted);
     const artifact = await writeArtifact(runId, "STATEMENT_JSON", "statement.json", value);
     return { value, artifactId: artifact.id };
@@ -220,7 +268,9 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
   await db.update(runs).set({ status: "QUALITY_CHECK" }).where(eq(runs.id, runId));
   const qa = await step.run("10-semantic-qa", () => executeStep(runId, "SEMANTIC_QA", async () => {
     const value = await structured<typeof qaReportSchema._output>(runId, "SEMANTIC_QA", "QA", "qa_report", qaReportSchema,
-      "独立审查答复稿，检查漏答、D 标签、修改依据、无证据效果、权利要求一致性、案件元数据和内部信息泄露。只输出可审计 finding，不输出隐藏思维链。", { snapshot, issues, matrix, amendment, statement });
+      "以评分表的六个维度独立复查这份答复稿（材料识别与版本 / OA 观点重建 / 逐特征比较与证据 / 修改价值与法律风险 / 创造性论证与反向攻击 / 正式写作），并主动构造审查员可能的二次攻击：公开事实攻击、组合攻击、常规选择攻击、替代实现攻击、技术效果攻击、超范围与清楚性攻击、以及「正文引用的修改后权项是否与最后确认文本逐字一致」的版本攻击。"
+      + "\n只输出可审计的 findings（位置、问题、期望与实际的差异），不输出隐藏思维链；不得因上一轮标记已修复而放宽标准；不得虚构不利证据来制造假风险。严重问题必须判为 BLOCKER：虚构原文/依据/技术效果/法律依据、擅改原始限定、混用权项版本、把内部核验过程写入正文、或宣称可提交。",
+      { snapshot, issues, matrix, amendment, statement }, skillFor("SEMANTIC_QA"));
     const artifact = await writeArtifact(runId, "QA_REPORT", "qa-report.json", value);
     return { value, artifactId: artifact.id };
   }));
@@ -237,11 +287,13 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
     const findingsForAttempt = remainingSevere;
     statement = await step.run(stepId, () => executeStep(runId, stepKey, async () => {
       const repaired = await structured<Statement>(runId, stepKey, "DRAFTING", `statement_repaired_${attempt}`, statementSchema,
-        "仅根据 OPEN QA findings 修复答复稿，不改变 Current Claims 和已选策略，不得增加无证据内容。", { statement, findings: findingsForAttempt, evidence: matrix });
+        "仅依据 OPEN 的 findings 修复答复稿：不改变 Current Claims 与已选策略，不新增无证据内容，不删减审查意见要求的答复；修复后必须逐条核对「修改后权利要求文字」与正文引用、以及 issueIds 覆盖是否仍然一致。",
+        { statement, findings: findingsForAttempt, evidence: matrix }, skillFor(stepKey));
       const value = stampIdentification(repaired);
       const artifact = await writeArtifact(runId, "STATEMENT_JSON", "statement.json", value, false, attempt + 1);
       const verification = await structured<typeof qaReportSchema._output>(runId, "VERIFY_REPAIR", "QA", `qa_report_repaired_${attempt}`, qaReportSchema,
-        "重新独立检查已修复答复稿。不得因上一轮标记已修复而放宽标准；仍存在的问题必须再次输出。", { snapshot, issues, matrix, amendment, statement: value });
+        "以与上一轮相同的标准重新独立检查已修复答复稿，并重新执行一次审查员二次攻击。不得因上一轮已标为修复而降低要求；仍存在的问题必须再次输出，未通过的严重问题继续判为 BLOCKER。",
+        { snapshot, issues, matrix, amendment, statement: value }, skillFor("VERIFY_REPAIR"));
       await writeArtifact(runId, "QA_REPORT", "qa-report-repaired.json", verification, false, attempt + 1);
       remainingSevere = verification.findings.filter(isSevere);
       if (remainingSevere.length) {
