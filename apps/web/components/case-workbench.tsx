@@ -223,7 +223,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
           ))}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 300px", gap: 14, alignItems: "start" }}>
+        <div className="case-body">
           <div className="grid">
             <section className="card">
               <div className="section-head">
@@ -235,9 +235,9 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
                 onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
                 onDragLeave={() => setDragging(false)}
                 onDrop={onDrop}
-                style={dragging ? { borderColor: "#7c3aed", background: "#f5f3ff" } : undefined}
+                style={dragging ? { borderColor: "#1f6feb", background: "#eef5ff" } : undefined}
               >
-                <UploadCloud size={22} color="#7c3aed" />
+                <UploadCloud size={22} color="#1f6feb" />
                 <div style={{ fontWeight: 600, marginTop: 6 }}>{busy ? "正在上传…" : "拖拽文件到此处，或点击选择"}</div>
                 <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>上传后系统会自动识别文件类型，可随时纠正</div>
                 <input ref={inputRef} hidden type="file" multiple accept=".pdf,.doc,.docx" onChange={upload} disabled={busy} />
