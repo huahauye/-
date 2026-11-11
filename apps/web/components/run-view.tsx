@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Download, Loader2, RefreshCw } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 
 type Run = { id: string; caseId: string; status: string; createdAt: string; finishedAt: string | null; userMessage: string | null; errorCode: string | null; skillVersion?: string };
-type Step = { stepKey: string; status: string };
+type Step = { stepKey: string; status: string; startedAt?: string | null; finishedAt?: string | null };
 type Artifact = { id: string; type: string; downloadable: boolean; sizeBytes: number | null };
 type Finding = { id: string; severity: string; code: string; location: string | null; message: string; repairStatus: string };
 
@@ -15,7 +15,37 @@ const stages = [
   { name: "文稿质检", keys: ["SEMANTIC_QA", "REPAIR_DRAFT", "VISUAL_QA", "FINAL_METADATA_QA"] },
   { name: "生成 Word", keys: ["BUILD_DOCX", "RENDER_DOCX", "COMPLETE"] }
 ];
+/** Plain-language name for the step that is running right now. */
+const stepLabels: Record<string, string> = {
+  SNAPSHOT_CASE: "读取案件材料",
+  BUILD_TIMELINE: "整理答复时间线",
+  RESOLVE_CURRENT_OA: "确定本次审查意见",
+  RESOLVE_CURRENT_CLAIMS: "确定当前权利要求",
+  EXTRACT_OA_ISSUES: "提取审查意见的争点",
+  BUILD_EVIDENCE_MATRIX: "逐项特征核对对比文件",
+  GENERATE_STRATEGIES: "拟定答复策略",
+  BUILD_AMENDMENT_PLAN: "拟定权利要求修改方案",
+  DRAFT_STATEMENT: "起草意见陈述书正文",
+  SEMANTIC_QA: "语义质检",
+  REPAIR_DRAFT: "按质检意见修订文稿",
+  VISUAL_QA: "排版检查",
+  FINAL_METADATA_QA: "元数据核对",
+  BUILD_DOCX: "生成 Word 文档",
+  RENDER_DOCX: "生成 PDF 预览",
+  COMPLETE: "收尾"
+};
 const severityLabels: Record<string, string> = { BLOCKER: "必须处理", ERROR: "问题", WARNING: "提示", INFO: "说明" };
+
+/** 2 分 41 秒 */
+function duration(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  if (total < 60) return `${total} 秒`;
+  return `${Math.floor(total / 60)} 分 ${total % 60} 秒`;
+}
+
+function secondsBetween(from: string, to: Date): number {
+  return (to.getTime() - new Date(from).getTime()) / 1000;
+}
 
 export function RunView({ runId }: { runId: string }) {
   const [run, setRun] = useState<Run | null>(null);
@@ -23,6 +53,7 @@ export function RunView({ runId }: { runId: string }) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [error, setError] = useState("");
+  const [now, setNow] = useState(() => new Date());
 
   const load = useCallback(() => fetch(`/api/runs/${runId}`)
     .then(async (response) => {
@@ -35,13 +66,26 @@ export function RunView({ runId }: { runId: string }) {
     })
     .catch((cause) => setError(cause.message)), [runId]);
 
+  const terminalStatuses = ["COMPLETED", "FAILED", "QA_FAILED", "CANCELLED"];
+
   useEffect(() => {
     load();
     const timer = setInterval(() => {
-      if (!run || !["COMPLETED", "FAILED", "QA_FAILED", "CANCELLED"].includes(run.status)) load();
-    }, 3000);
+      if (!run || !terminalStatuses.includes(run.status)) load();
+    }, 2000);
     return () => clearInterval(timer);
+    // terminalStatuses is a literal list; re-subscribing on run is enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load, run]);
+
+  // A ticking clock is what tells the user the page is alive: a long model call
+  // can take minutes and the stage list alone looks frozen.
+  useEffect(() => {
+    if (run && terminalStatuses.includes(run.status)) return;
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [run?.status]);
 
   if (error) return <div className="notice error">{error}</div>;
   if (!run) return <div className="card empty">正在读取生成进度…</div>;
@@ -55,6 +99,7 @@ export function RunView({ runId }: { runId: string }) {
   const advisoryFindings = findings.filter((finding) => finding.severity === "WARNING");
   const title = docx ? "意见陈述书已生成" : terminal ? "本次生成未完成" : "正在生成意见陈述书";
   const kb = (value: number | null) => (value ? `${Math.round(value / 1024)} KB` : "");
+  const runningStep = steps.find((step) => step.status === "RUNNING") ?? undefined;
 
   return (
     <div style={{ maxWidth: 820, margin: "0 auto" }}>
@@ -105,25 +150,49 @@ export function RunView({ runId }: { runId: string }) {
 
       {!terminal && (
         <div className="notice" style={{ marginTop: 12 }}>
-          <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 6 }} />页面会自动更新，无需保持窗口前台。
+          <RefreshCw size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+          页面会自动更新，可以离开再回来。一次完整生成通常需要 3–8 分钟。
         </div>
       )}
 
       <section className="card" style={{ marginTop: 12 }}>
-        <div className="section-head"><h3>生成进度</h3><span className="muted" style={{ fontSize: 12 }}>{terminal ? "已结束" : "进行中"}</span></div>
+        <div className="section-head">
+          <h3>生成进度</h3>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {terminal
+              ? `用时 ${duration(secondsBetween(run.createdAt, run.finishedAt ? new Date(run.finishedAt) : now))}`
+              : `已用 ${duration(secondsBetween(run.createdAt, now))}`}
+          </span>
+        </div>
+        {!terminal && runningStep && (
+          <div className="notice" style={{ marginBottom: 10, fontSize: 12.5 }}>
+            正在{stepLabels[runningStep.stepKey] ?? runningStep.stepKey}
+            {runningStep.startedAt ? ` · 本步已用 ${duration(secondsBetween(runningStep.startedAt, now))}` : ""}
+          </div>
+        )}
         <div className="timeline">
           {stages.map((stage, index) => {
-            const states = stage.keys.map((key) => steps.find((step) => step.stepKey === key)?.status);
+            const rows = stage.keys.map((key) => steps.find((step) => step.stepKey === key));
+            const states = rows.map((row) => row?.status);
             const done = states.length > 0 && states.every((value) => value === "SUCCEEDED");
             const active = (!done && states.some((value) => value === "RUNNING"))
               || (!terminal && !states.some(Boolean) && stages.slice(0, index).every((previous) => previous.keys.every((key) => steps.find((step) => step.stepKey === key)?.status === "SUCCEEDED")));
             const failed = states.some((value) => value === "FAILED");
+            const startedAt = rows.map((row) => row?.startedAt).filter((value): value is string => Boolean(value)).sort()[0];
+            const allFinished = rows.map((row) => row?.finishedAt).filter((value): value is string => Boolean(value));
+            const endedAt = done && allFinished.length === rows.length ? allFinished.sort().slice(-1)[0] : undefined;
+            const inner = rows.find((row) => row?.status === "RUNNING");
             return (
               <div className={`step ${done ? "done" : active ? "active" : ""}`} key={stage.name}>
                 <span className="dot" style={failed ? { background: "var(--red)" } : undefined} />
                 <div>
                   {stage.name}
-                  {active && !terminal && <Loader2 size={12} style={{ marginLeft: 6, verticalAlign: -1 }} />}
+                  {endedAt && startedAt && <span className="muted" style={{ marginLeft: 8, fontSize: 12 }}>{duration(secondsBetween(startedAt, new Date(endedAt)))}</span>}
+                  {active && !terminal && (
+                    <span className="muted" style={{ marginLeft: 8, fontSize: 12 }}>
+                      {inner ? `${stepLabels[inner.stepKey] ?? inner.stepKey}…` : "进行中…"}
+                    </span>
+                  )}
                   {failed && <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>未完成</span>}
                 </div>
               </div>
