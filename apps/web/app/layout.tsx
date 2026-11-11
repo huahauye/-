@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { TopNav } from "@/components/top-nav";
-import { currentUser } from "@/lib/auth";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,15 +6,17 @@ export const metadata: Metadata = {
   description: "中国发明专利审查意见（OA）分析与意见陈述书生成"
 };
 
-export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  // 顶部导航需要用户身份来切换“登录/注册”与头像菜单，并决定是否显示管理入口。
-  const user = await currentUser();
+/**
+ * The root layout only provides the document shell.
+ *
+ * Chrome lives in the route groups: the marketing site brings its own header,
+ * the (app) and admin areas bring the workbench top bar. Rendering the app bar
+ * here would stack two headers on the public page.
+ */
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN">
-      <body>
-        <TopNav user={user ? { email: user.email, role: user.role } : null} />
-        <main className="shell page">{children}</main>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

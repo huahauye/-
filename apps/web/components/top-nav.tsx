@@ -28,9 +28,9 @@ export function TopNav({ user }: { user: NavUser | null }) {
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  const isCases = pathname === "/cases" || pathname.startsWith("/cases/") || pathname.startsWith("/runs/");
+  const isCases = pathname === "/cases" || pathname.startsWith("/cases/") || pathname.startsWith("/runs/") || pathname.startsWith("/analysis/");
   const items = [
-    { href: "/", label: "工作台", active: pathname === "/" && Boolean(user) },
+    { href: "/dashboard", label: "工作台", active: pathname === "/dashboard" },
     { href: "/cases", label: "案件", active: isCases },
     ...(user?.role === "ADMIN" ? [{ href: "/admin", label: "管理", active: pathname.startsWith("/admin") }] : [])
   ];
@@ -70,7 +70,7 @@ export function TopNav({ user }: { user: NavUser | null }) {
               {open && (
                 <div className="menu" role="menu">
                   <div className="menu-head"><strong>{user.email}</strong><span>{user.role === "ADMIN" ? "管理员" : "普通用户"}</span></div>
-                  <Link className="menu-item" href="/" onClick={() => setOpen(false)}><LayoutDashboard size={14} />工作台</Link>
+                  <Link className="menu-item" href="/dashboard" onClick={() => setOpen(false)}><LayoutDashboard size={14} />工作台</Link>
                   <Link className="menu-item" href="/account" onClick={() => setOpen(false)}><Settings size={14} />账户与安全</Link>
                   {user.role === "ADMIN" && <Link className="menu-item" href="/admin" onClick={() => setOpen(false)}><ShieldCheck size={14} />系统管理</Link>}
                   <button className="menu-item" onClick={signOut}><LogOut size={14} />退出登录</button>
