@@ -33,6 +33,24 @@ set -a
 set +a
 export NEXT_TELEMETRY_DISABLED=1 CI=true
 
+# The workflow runs inside the web process, so restarting it kills whatever is
+# generating at that moment. Refuse to continue while a run is in flight unless
+# the operator explicitly forces it.
+step "in-flight runs"
+INFLIGHT=$(psql "$DATABASE_URL" -t -A -c "select count(*) from runs where status in ('QUEUED','ANALYZING','DRAFTING','QUALITY_CHECK','GENERATING_DOCUMENT')" 2>/dev/null || echo "unknown")
+echo "in-flight: $INFLIGHT"
+if [ "$INFLIGHT" = "unknown" ]; then
+  echo "WARN: could not read in-flight runs, continuing"
+elif [ "$INFLIGHT" != "0" ]; then
+  psql "$DATABASE_URL" -t -A -c "select id, status, to_char(created_at,'HH24:MI:SS') from runs where status in ('QUEUED','ANALYZING','DRAFTING','QUALITY_CHECK','GENERATING_DOCUMENT')" 2>/dev/null
+  if [ "${FORCE_DEPLOY:-0}" != "1" ]; then
+    echo "FATAL: a generation is in progress and would be interrupted by this deploy."
+    echo "       wait for it to finish, or re-run with FORCE_DEPLOY=1 to interrupt it."
+    exit 1
+  fi
+  echo "WARN: FORCE_DEPLOY=1, the runs above will be marked WORKFLOW_INTERRUPTED"
+fi
+
 step "node dependencies"
 pnpm install --frozen-lockfile 2>&1 | tail -4
 
