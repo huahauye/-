@@ -155,6 +155,11 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
   const priorArt = docs.filter((row) => row.document.role === "PRIOR_ART");
   const responseDocs = docs.filter((row) => row.document.role === "RESPONSE_STATEMENT");
   const isReady = readiness?.status === "READY";
+  // Tell the user what actually blocks generation instead of a generic badge.
+  const blockers = (readiness?.checks ?? []).filter((check) => check.status === "BLOCKER");
+  const blockerHint = blockers.length > 0
+    ? `${blockers.map((check) => check.message).join(" ")}`
+    : "需要补充或确认";
   const hasRun = runs.some((run) => run.status === "COMPLETED" || run.status === "QA_FAILED");
   const steps = [
     { label: "上传材料", done: docs.length > 0 },
@@ -200,7 +205,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span className={`badge ${isReady ? "good" : "warn"}`}>{isReady ? "材料已就绪" : "需要补充或确认"}</span>
-            <button className="button" disabled={!isReady || busy} onClick={generate}>
+            <button className="button" disabled={!isReady || busy} onClick={generate} title={isReady ? undefined : blockerHint}>
               {busy ? <Loader2 size={16} /> : <Play size={16} />}生成意见陈述书
             </button>
           </div>
@@ -250,10 +255,16 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
                     <div className="slot-name">{currentOa?.version?.originalFilename ?? "尚未上传"}</div>
                   </div>
                   <div className="slot-actions">
-                    {currentOa ? <span className="badge good">{currentOa.document.id === patentCase?.currentOaDocumentId ? "当前 OA" : parseState(currentOa)}</span> : <span className="badge neutral">待上传</span>}
-                    {oaDocs.filter((row) => row.document.id !== patentCase?.currentOaDocumentId).map((row) => (
-                      <button key={row.document.id} className="button ghost sm" onClick={() => selectOa(row.document.id)}>选为当前</button>
-                    ))}
+                    {oaDocs.length === 0 && <span className="badge neutral">待上传</span>}
+                    {oaDocs.map((row) => {
+                      const isCurrent = row.document.id === patentCase?.currentOaDocumentId;
+                      if (isCurrent && patentCase?.currentOaConfirmed) return <span key={row.document.id} className="badge good">已确认</span>;
+                      return (
+                        <button key={row.document.id} className={`button sm ${isCurrent ? "" : "ghost"}`} onClick={() => selectOa(row.document.id)}>
+                          {isCurrent ? "确认使用" : "选为当前"}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -310,28 +321,39 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
                         {["D1", "D2", "D3", "D4", "D5"].map((label) => <option key={label} value={label}>{label}</option>)}
                       </select>
                     )}
-                    {row.document.role === "OFFICE_ACTION" && row.document.id !== patentCase?.currentOaDocumentId && (
-                      <button className="button ghost sm" onClick={() => selectOa(row.document.id)}>选为当前</button>
-                    )}
-                    {row.document.role === "OFFICE_ACTION" && row.document.id === patentCase?.currentOaDocumentId && <span className="badge good">当前 OA</span>}
+                    {row.document.role === "OFFICE_ACTION" && (() => {
+                      const isCurrent = row.document.id === patentCase?.currentOaDocumentId;
+                      if (isCurrent && patentCase?.currentOaConfirmed) return <span className="badge good">已确认</span>;
+                      return (
+                        <button className={`button sm ${isCurrent ? "" : "ghost"}`} onClick={() => selectOa(row.document.id)}>
+                          {isCurrent ? "确认使用" : "选为当前"}
+                        </button>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>}
               {claims.length > 0 && <>
                 <div className="divider" style={{ margin: "0 16px" }} />
-                <div className="section-head" style={{ padding: "12px 16px 4px", marginBottom: 0 }}><h3>权利要求版本</h3></div>
+                <div className="section-head" style={{ padding: "12px 16px 4px", marginBottom: 0 }}>
+                  <h3>权利要求版本</h3>
+                  <span className="muted" style={{ fontSize: 12 }}>生成前需确认使用哪一版</span>
+                </div>
                 <div style={{ padding: "0 16px 12px" }}>
-                  {claims.map((claim) => (
-                    <div className="file-row" key={claim.id}>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div className="file-name">{claim.label || `版本 ${claim.ordinal}`}</div>
-                        <div className="muted" style={{ fontSize: 12 }}>识别置信度 {Math.round(Number(claim.confidence) * 100)}%</div>
+                  {claims.map((claim) => {
+                    const isCurrent = patentCase?.currentClaimVersionId === claim.id;
+                    return (
+                      <div className="file-row" key={claim.id}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div className="file-name">{claim.label || `版本 ${claim.ordinal}`}</div>
+                          <div className="muted" style={{ fontSize: 12 }}>识别置信度 {Math.round(Number(claim.confidence) * 100)}%</div>
+                        </div>
+                        {isCurrent && patentCase?.currentClaimsConfirmed
+                          ? <span className="badge good">当前版本</span>
+                          : <button className={`button sm ${isCurrent ? "" : "ghost"}`} onClick={() => selectClaims(claim.id)}>{isCurrent ? "确认使用" : "选为当前"}</button>}
                       </div>
-                      {patentCase?.currentClaimVersionId === claim.id
-                        ? <span className="badge good">当前版本</span>
-                        : <button className="button ghost sm" onClick={() => selectClaims(claim.id)}>确认使用</button>}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>}
             </section>
@@ -350,8 +372,14 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
                 </div>
               ))}
               {!readiness && <div className="empty" style={{ padding: "18px 0" }}>正在检查材料…</div>}
+              {blockers.length > 0 && (
+                <div className="notice warn" style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.65 }}>
+                  还差 {blockers.length} 项才能生成：{blockers.map((check) => check.message).join(" ")}
+                  {blockers.some((check) => check.code === "CURRENT_OA_RESOLVED" || check.code === "CURRENT_CLAIMS_RESOLVED") && " 请在上方「关键材料」或「材料清单」里点「确认使用」。"}
+                </div>
+              )}
               <div style={{ marginTop: 14 }}>
-                <button className="button block" disabled={!isReady || busy} onClick={generate}>
+                <button className="button block" disabled={!isReady || busy} onClick={generate} title={isReady ? undefined : blockerHint}>
                   {busy ? <Loader2 size={16} /> : <Play size={16} />}生成意见陈述书
                 </button>
                 <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.6 }}>
