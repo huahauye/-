@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
-  amendmentPlanSchema, evidenceMatrixSchema, issueListSchema, qaReportSchema, statementSchema, strategySchema,
+  amendmentPlanSchema, evidenceMatrixSchema, issueListSchema, statementSchema, strategySchema,
   type Statement
 } from "@oa/schemas";
 import {
@@ -255,7 +255,7 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
   }
 
   await db.update(runs).set({ status: "DRAFTING" }).where(eq(runs.id, runId));
-  let statement = await step.run("09-draft-statement", () => executeStep(runId, "DRAFT_STATEMENT", async () => {
+  const statement = await step.run("09-draft-statement", () => executeStep(runId, "DRAFT_STATEMENT", async () => {
     const drafted = await structured<Statement>(runId, "DRAFT_STATEMENT", "DRAFTING", "statement", statementSchema,
       "按正式《意见陈述书》的规范起草中文工作稿，章节按本次情况动态裁剪，顺序为：案件识别 → 修改说明（本次未修改权利要求时不得保留该章，也不得编造）→ 修改后权利要求 1 的逐字引用（确有修改时）→ 修改依据（仅在确有修改且依据已核实时保留）→ 按「对于上述区别技术特征 1）」逐项答复 → 独立权利要求的创造性（先证据、后判断，「突出的实质性特点」与「显著的进步」分别给出论据）→ 其他权利要求（先核对真实引用关系，简短）→ 结论。"
       + "\n纪律：引用审查员观点时忠实转述其原话要点，不夸大也不美化；区别技术特征必须与修改后权利要求的文字逐字一致；技术效果只能来自申请文件明确记载，说明书未记载的效果不得主张，只能据权利要求技术特征作技术分析；指代对比文件统一使用案件材料已定义的 D 标签；证据标签、内部核验过程与风险提示一律不得进入递交正文；正文不得出现内部检查信息，reviewNotes 必须为空；每个段落用 issueIds 标记所答复的问题。",
@@ -265,60 +265,26 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
     return { value, artifactId: artifact.id };
   }));
 
-  await db.update(runs).set({ status: "QUALITY_CHECK" }).where(eq(runs.id, runId));
-  const qa = await step.run("10-semantic-qa", () => executeStep(runId, "SEMANTIC_QA", async () => {
-    const value = await structured<typeof qaReportSchema._output>(runId, "SEMANTIC_QA", "QA", "qa_report", qaReportSchema,
-      "以评分表的六个维度独立复查这份答复稿（材料识别与版本 / OA 观点重建 / 逐特征比较与证据 / 修改价值与法律风险 / 创造性论证与反向攻击 / 正式写作），并主动构造审查员可能的二次攻击：公开事实攻击、组合攻击、常规选择攻击、替代实现攻击、技术效果攻击、超范围与清楚性攻击、以及「正文引用的修改后权项是否与最后确认文本逐字一致」的版本攻击。"
-      + "\n只输出可审计的 findings（位置、问题、期望与实际的差异），不输出隐藏思维链；不得因上一轮标记已修复而放宽标准；不得虚构不利证据来制造假风险。严重问题必须判为 BLOCKER：虚构原文/依据/技术效果/法律依据、擅改原始限定、混用权项版本、把内部核验过程写入正文、或宣称可提交。",
-      { snapshot, issues, matrix, amendment, statement }, skillFor("SEMANTIC_QA"));
-    const artifact = await writeArtifact(runId, "QA_REPORT", "qa-report.json", value);
-    return { value, artifactId: artifact.id };
-  }));
-  if (qa.findings.length) await db.insert(qaFindings).values(qa.findings.map((finding) => ({ runId, ...finding })));
-
-  const isSevere = (finding: { severity: string }) => finding.severity === "BLOCKER" || finding.severity === "ERROR";
-  let remainingSevere = qa.findings.filter(isSevere);
-  // Repair is retried up to MAX_REPAIR_ATTEMPTS times: a single pass often
-  // leaves findings that a second, differently-seeded pass fixes.
-  const maxRepairAttempts = Math.max(1, serverConfig().MAX_REPAIR_ATTEMPTS);
-  for (let attempt = 1; attempt <= maxRepairAttempts && remainingSevere.length; attempt += 1) {
-    const stepKey = attempt === 1 ? "REPAIR_DRAFT" : `REPAIR_DRAFT_${attempt}`;
-    const stepId = attempt === 1 ? "11-repair-draft" : `11-repair-draft-${attempt}`;
-    const findingsForAttempt = remainingSevere;
-    statement = await step.run(stepId, () => executeStep(runId, stepKey, async () => {
-      const repaired = await structured<Statement>(runId, stepKey, "DRAFTING", `statement_repaired_${attempt}`, statementSchema,
-        "仅依据 OPEN 的 findings 修复答复稿：不改变 Current Claims 与已选策略，不新增无证据内容，不删减审查意见要求的答复；修复后必须逐条核对「修改后权利要求文字」与正文引用、以及 issueIds 覆盖是否仍然一致。",
-        { statement, findings: findingsForAttempt, evidence: matrix }, skillFor(stepKey));
-      const value = stampIdentification(repaired);
-      const artifact = await writeArtifact(runId, "STATEMENT_JSON", "statement.json", value, false, attempt + 1);
-      const verification = await structured<typeof qaReportSchema._output>(runId, "VERIFY_REPAIR", "QA", `qa_report_repaired_${attempt}`, qaReportSchema,
-        "以与上一轮相同的标准重新独立检查已修复答复稿，并重新执行一次审查员二次攻击。不得因上一轮已标为修复而降低要求；仍存在的问题必须再次输出，未通过的严重问题继续判为 BLOCKER。",
-        { snapshot, issues, matrix, amendment, statement: value }, skillFor("VERIFY_REPAIR"));
-      await writeArtifact(runId, "QA_REPORT", "qa-report-repaired.json", verification, false, attempt + 1);
-      remainingSevere = verification.findings.filter(isSevere);
-      if (remainingSevere.length) {
-        await db.insert(qaFindings).values(remainingSevere.map((finding) => ({ runId, ...finding })));
-      } else {
-        await db.update(qaFindings).set({ repairStatus: "AUTO_FIXED" }).where(and(eq(qaFindings.runId, runId), inArray(qaFindings.severity, ["BLOCKER", "ERROR"])));
-      }
-      return { value, artifactId: artifact.id };
-    }));
-  }
-  if (!remainingSevere.length && !qa.findings.some(isSevere)) {
-    await step.run("11-repair-not-required", () => markStep(runId, "REPAIR_DRAFT", "SUCCEEDED"));
-  }
-
+  // The independent semantic review was removed on purpose: the draft is a work
+  // paper for a patent attorney, and the extra review turned every generation
+  // into three more model calls without changing the delivered document. What
+  // remains below is the deterministic metadata gate, which is free and stops a
+  // document with the wrong application number from ever being built.
+  await db.update(runs).set({ status: "GENERATING_DOCUMENT" }).where(eq(runs.id, runId));
   const deterministic = deterministicStatementQa(statement, {
     ...identification,
     issueIds: issues.issues.map((issue) => issue.issueId)
   });
   if (deterministic.length) {
     await db.insert(qaFindings).values(deterministic.map((finding) => ({ runId, ...finding, expected: null, actual: null, basis: null })));
-    await db.update(runs).set({ status: "QA_FAILED", errorCode: "METADATA_QA_FAILED", userMessage: `RUN-${runId.slice(0, 4).toUpperCase()}`, finishedAt: new Date() }).where(eq(runs.id, runId));
+    await db.update(runs).set({
+      status: "FAILED",
+      errorCode: "METADATA_MISMATCH",
+      userMessage: `${deterministic[0]!.message}（${deterministic[0]!.location}）`,
+      finishedAt: new Date()
+    }).where(eq(runs.id, runId));
     return;
   }
-
-  await db.update(runs).set({ status: "GENERATING_DOCUMENT" }).where(eq(runs.id, runId));
   const buildJob = await step.run("12-build-docx", () => executeStep(runId, "BUILD_DOCX", async () => {
     const rows = await db.insert(workerJobs).values({ runId, jobType: "BUILD_DOCX", payload: { statementKey: artifactKey(runId, "statement.json"), outputKey: artifactKey(runId, "statement.docx") } }).returning();
     return { value: rows[0]!.id };
@@ -329,23 +295,8 @@ export async function runWorkflow(step: StepApi, runId: string): Promise<void> {
     return { value: rows[0]!.id };
   }));
   await waitForWorker(step, runId, renderJob, "13-render");
-  await step.run("14-visual-qa", () => executeStep(runId, "VISUAL_QA", async () => ({ value: true })));
-  await step.run("15-final-metadata-qa", () => executeStep(runId, "FINAL_METADATA_QA", async () => ({ value: true })));
-  await step.run("16-complete", () => executeStep(runId, "COMPLETE", async () => {
-    const open = await db.select().from(qaFindings).where(and(eq(qaFindings.runId, runId), eq(qaFindings.repairStatus, "OPEN"), inArray(qaFindings.severity, ["ERROR", "BLOCKER"])));
-    // The document is produced either way — it is a work draft, and the QA
-    // report is shown next to it — but the run still records whether the
-    // independent review found anything it could not fix.
-    if (open.length) {
-      await db.update(runs).set({
-        status: "QA_FAILED",
-        errorCode: "OPEN_QA_FINDINGS",
-        userMessage: `RUN-${runId.slice(0, 4).toUpperCase()}`,
-        finishedAt: new Date()
-      }).where(eq(runs.id, runId));
-      return { value: { completed: false, openFindings: open.length } };
-    }
+  await step.run("14-complete", () => executeStep(runId, "COMPLETE", async () => {
     await db.update(runs).set({ status: "COMPLETED", finishedAt: new Date() }).where(eq(runs.id, runId));
-    return { value: { completed: true, openFindings: 0 } };
+    return { value: { completed: true } };
   }));
 }

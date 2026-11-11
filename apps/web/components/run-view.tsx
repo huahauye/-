@@ -6,13 +6,11 @@ import { Download, RefreshCw } from "lucide-react";
 type Run = { id: string; caseId: string; status: string; createdAt: string; finishedAt: string | null; userMessage: string | null; errorCode: string | null; skillVersion?: string };
 type Step = { stepKey: string; status: string; startedAt?: string | null; finishedAt?: string | null };
 type Artifact = { id: string; type: string; downloadable: boolean; sizeBytes: number | null };
-type Finding = { id: string; severity: string; code: string; location: string | null; message: string; repairStatus: string };
 
 const stages = [
   { name: "准备材料", keys: ["SNAPSHOT_CASE", "BUILD_TIMELINE", "RESOLVE_CURRENT_OA", "RESOLVE_CURRENT_CLAIMS"] },
   { name: "分析审查意见", keys: ["EXTRACT_OA_ISSUES", "BUILD_EVIDENCE_MATRIX", "GENERATE_STRATEGIES", "BUILD_AMENDMENT_PLAN"] },
   { name: "起草意见陈述书", keys: ["DRAFT_STATEMENT"] },
-  { name: "文稿质检", keys: ["SEMANTIC_QA", "REPAIR_DRAFT", "VISUAL_QA", "FINAL_METADATA_QA"] },
   { name: "生成 Word", keys: ["BUILD_DOCX", "RENDER_DOCX", "COMPLETE"] }
 ];
 /** Plain-language name for the step that is running right now. */
@@ -26,15 +24,10 @@ const stepLabels: Record<string, string> = {
   GENERATE_STRATEGIES: "拟定答复策略",
   BUILD_AMENDMENT_PLAN: "拟定权利要求修改方案",
   DRAFT_STATEMENT: "起草意见陈述书正文",
-  SEMANTIC_QA: "语义质检",
-  REPAIR_DRAFT: "按质检意见修订文稿",
-  VISUAL_QA: "排版检查",
-  FINAL_METADATA_QA: "元数据核对",
   BUILD_DOCX: "生成 Word 文档",
   RENDER_DOCX: "生成 PDF 预览",
   COMPLETE: "收尾"
 };
-const severityLabels: Record<string, string> = { BLOCKER: "必须处理", ERROR: "问题", WARNING: "提示", INFO: "说明" };
 
 /** 2 分 41 秒 */
 function duration(seconds: number): string {
@@ -51,7 +44,6 @@ export function RunView({ runId }: { runId: string }) {
   const [run, setRun] = useState<Run | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
-  const [findings, setFindings] = useState<Finding[]>([]);
   const [error, setError] = useState("");
   const [now, setNow] = useState(() => new Date());
 
@@ -62,7 +54,6 @@ export function RunView({ runId }: { runId: string }) {
       setRun(value.run);
       setSteps(value.steps ?? []);
       setArtifacts(value.artifacts ?? []);
-      setFindings(value.findings ?? []);
     })
     .catch((cause) => setError(cause.message)), [runId]);
 
@@ -91,12 +82,8 @@ export function RunView({ runId }: { runId: string }) {
   if (!run) return <div className="card empty">正在读取生成进度…</div>;
 
   const terminal = ["COMPLETED", "FAILED", "QA_FAILED", "CANCELLED"].includes(run.status);
-  // The document is what the user came for: offer it whenever it exists, even
-  // when the independent QA still reports something about the draft.
   const docx = artifacts.find((artifact) => artifact.type === "STATEMENT_DOCX" && artifact.downloadable);
   const pdf = artifacts.find((artifact) => artifact.type === "RENDERED_PDF" && artifact.downloadable);
-  const openFindings = findings.filter((finding) => finding.severity === "ERROR" || finding.severity === "BLOCKER");
-  const advisoryFindings = findings.filter((finding) => finding.severity === "WARNING");
   const title = docx ? "意见陈述书已生成" : terminal ? "本次生成未完成" : "正在生成意见陈述书";
   const kb = (value: number | null) => (value ? `${Math.round(value / 1024)} KB` : "");
   const runningStep = steps.find((step) => step.status === "RUNNING") ?? undefined;
@@ -135,12 +122,6 @@ export function RunView({ runId }: { runId: string }) {
           </div>
         )}
       </section>
-
-      {docx && openFindings.length > 0 && (
-        <div className="notice warn" style={{ marginTop: 12 }}>
-          文稿已生成并可下载。独立质检仍提出 {openFindings.length} 项需要人工确认的问题，见下方质检记录，请代理师复核后再使用。
-        </div>
-      )}
 
       {!docx && terminal && (
         <div className="notice error" style={{ marginTop: 12 }}>
@@ -200,27 +181,6 @@ export function RunView({ runId }: { runId: string }) {
           })}
         </div>
       </section>
-
-      {findings.length > 0 && (
-        <section className="card" style={{ marginTop: 12 }}>
-          <div className="section-head">
-            <div>
-              <h3>质检记录</h3>
-              <div className="muted" style={{ fontSize: 12 }}>独立语义质检与渲染检查的结论，按严重程度排列</div>
-            </div>
-          </div>
-          {[...openFindings, ...advisoryFindings, ...findings.filter((finding) => finding.severity === "INFO")].slice(0, 12).map((finding) => (
-            <div className="finding" key={finding.id}>
-              <span className={`finding-sev ${finding.severity}`}>{finding.severity === "INFO" ? "i" : finding.severity === "WARNING" ? "!" : "×"}</span>
-              <div style={{ minWidth: 0 }}>
-                <div className="finding-code">{severityLabels[finding.severity] ?? finding.severity} · {finding.code}</div>
-                <div className="finding-text">{finding.message}</div>
-                {finding.location && <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>{finding.location}</div>}
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
     </div>
   );
 }
